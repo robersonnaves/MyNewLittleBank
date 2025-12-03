@@ -1,0 +1,93 @@
+{
+	"meta": {
+		"generatedAt": "2025-12-02T23:55:52.895Z",
+		"tasksAnalyzed": 10,
+		"totalTasks": 10,
+		"analysisCount": 10,
+		"thresholdScore": 5,
+		"projectName": "Task Master",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Atualizar solução para .NET 10 e propriedades compartilhadas",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Mapeie a ausência atual de arquivos .sln (nenhum retorno de `rg --files -g '*.sln'`) e identifique todos os csproj existentes (hoje apenas `src/Domain/Domain.csproj`). Atualize `src/Directory.Build.props` para incluir TargetFramework net10.0, Nullable/ImplicitUsings habilitados e AnalysisLevel latest-all, criando `Directory.Packages.props` se necessário para centralizar versões (EF Core 10, RabbitMQ.Client >=7.2, OpenTelemetry 1.14, Serilog 4.3). Rode `dotnet list package --outdated`/`dotnet build`/`dotnet test` ajustando referências até ficarem limpos e crie ou atualize pipelines/Dockerfiles inexistentes para usar imagens SDK/runtime 10.",
+			"reasoning": "O repositório não possui solution (.sln) nem múltiplos projetos (apenas `src/Domain/Domain.csproj:4`), enquanto `src/Directory.Build.props:1` só define SonarAnalyzer e não impõe TargetFramework, Nullable, ImplicitUsings ou AnalysisLevel exigidos. Será necessário localizar/criar arquivos compartilhados, centralizar versões e ajustar pipelines/Dockerfiles que hoje nem existem, além de garantir builds/testes limpos em net10, o que coloca a tarefa num patamar de complexidade média."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Reestruturar camada Domain com entidades e DTOs aderentes ao TPH",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Crie um projeto Domain estruturado com Result/DomainException e pastas para Entities, ValueObjects e DTOs; hoje só há classes simples em `src/Domain/Entities`. Defina value objects (ClientId, AccountNumber, Money, etc.) com validações e enums de status/tipo. Reescreva entidades (`BankAccount`, `Transaction` e derivadas) para modelos imutáveis com comportamentos (Debit/Credit, invariantes) e produza DTOs/manuais para o cenário TPH. Adicione projeto Domain.Tests cobrindo invariantes, exceções e round-trips DTO ↔ entidade.",
+			"reasoning": "Os arquivos atuais (`src/Domain/Entities/BankAccount.cs`, `Transaction.cs`, `PixTransaction.cs` etc.) exibem POCOs mutáveis com construtores vazios, sem value objects, métodos de negócio robustos, DTOs ou Result/DomainException, e não existe projeto de testes. Refatorar para uma camada Domain rica e alinhada a TPH requer introduzir novos tipos, invariantes e cobertura de testes praticamente do zero, elevando a complexidade."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implementar Infra.Database com EF Core, Unit of Work e migrações TPH",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Adicione o projeto `Infra.Database` (não há nenhum diretório correspondente nos resultados de `rg --files`), referencie o Domain existente e inclua pacotes EF Core/Npgsql. Implemente `MyLittleBankContext` com `DbSet` para Client/BankAccount/Transaction, configure `UseNpgsql`/SnakeCase, RowVersion e TPH no `OnModelCreating`. Crie repositórios e `IUnitOfWork` com `SaveChangesAsync`, gere migração inicial (`dotnet ef migrations add Initial --project Infra.Database`) e valide contra Postgres local.",
+			"reasoning": "Atualmente não existe camada de infraestrutura nem qualquer DbContext; apenas os modelos de domínio em `src/Domain`. Implementar o contexto, mappings TPH, tokens de concorrência, repositórios/UoW e migrações PostgreSQL implica criar um projeto inteiro do zero e integrá-lo ao domínio, além de garantir tooling (`dotnet ef`) e testes, caracterizando alta complexidade."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Implementar Outbox/Inbox e dispatcher confiável no banco",
+			"complexityScore": 9,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Dentro do projeto Infra.Database (a ser criado), modele entidades Outbox/Inbox e respectivas tabelas/mapeamentos EF. Ajuste o UnitOfWork para persistir eventos de domínio no Outbox na mesma transação e crie `OutboxDispatcher` como BackgroundService que lê lotes com `FOR UPDATE SKIP LOCKED`, publica via `IPublisherService` e atualiza status/retentativa. Implemente lógica Inbox para consumidores consultarem/registrarem mensagens idempotentes e adicione rotinas de limpeza e testes de falha/retomada.",
+			"reasoning": "Não há qualquer traço de Outbox/Inbox, UnitOfWork integrado ou dispatcher; somente entidades simples em `src/Domain`. Esta tarefa depende da infraestrutura de banco e mensageria inexistentes, exige sincronizar transações EF, publicar via RabbitMQ e tratar concorrência/retentativas, tornando a implementação altamente complexa."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Criar infraestrutura RabbitMQ (connection factory, publisher, consumer) com retries/DLQ",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Crie um projeto `Infra.Message` (não há referências a RabbitMQ fora do PRD) contendo contratos/opções (`RabbitOptions`), `RabbitConnectionFactory` com TLS/reconexão, `PublisherService` com `ConfirmSelect`/WaitForConfirms e `RabbitConsumerService<T>` com `BasicQos`, ack manual, retries, filas de atraso e DLQ. Acrescente `RabbitTopologyBootstrapper` para exchanges/filas com TTL/DLQ e documentação das convenções.",
+			"reasoning": "A busca por \"Rabbit\" só encontra o PRD (`PRD-MyLittleBank-Rewrite.md`), indicando ausência completa de infraestrutura de mensageria. Implementar conexões resilientes, publisher confirms, consumidores com retries/ DLQ e bootstrapper de topologia demanda bastante código novo, integração com opções/telemetria e testes de integração, configurando alta complexidade."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Implementar UseCases de processamento de transações",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Defina contratos necessários (repositories, UoW factory, serviços de Outbox) para `ProcessTransactionsHandler`, tomando como base que apenas o domínio cru existe hoje. Implementar classe base que roteia DTOs para métodos específicos, além dos fluxos `ProcessPixTransaction`, `ProcessMoneyTransaction` e `ProcessCardTransaction` realizando validações, debit/credit via entidades e registro no Outbox. Garanta testes unitários/integrados simulando repositórios e Outbox.",
+			"reasoning": "As entidades atuais (`src/Domain/Entities/*.cs`) não possuem regras completas de débito/crédito e não há repositórios, UnitOfWork ou Outbox disponíveis. Construir handlers que coordenem domínio, persistência e mensageria exige definir diversas dependências novas e sincronizar transações/eventos, resultando em complexidade elevada."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Desenvolver serviços consumidores Pix/Money/Card e publisher de heartbeat",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Criar projetos `Services/Pix`, `Services/Money`, `Services/Card` (nenhum existe hoje) que inicializam `Host.CreateApplicationBuilder`, registram DbContext/Infra.Message/UseCases e adicionam consumidores específicos herdando do `RabbitConsumerService<T>`. Implementar receivers usando `System.Text.Json` source-generated, lidar com CancellationToken/logs e criar `HeartbeatPublisher/Consumer`. Completar com configs appsettings, health checks e Dockerfiles para cada worker.",
+			"reasoning": "Não há qualquer pasta `Services` nem consumidores/publishers; a infraestrutura de mensageria e uso de casos também é inexistente. Montar três workers mais heartbeat implica configurar DI, hospedagem, serializers, interação com Rabbit e bancos, além de health checks e scripts, tornando a tarefa complexa e dependente de múltiplos blocos prévios."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Implementar Mock.Transactions e pipelines de publicação assíncrona",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Adicionar projeto `Mock.Transactions` inexistente, configurando opções (`MockTransactionsSettings`), host genérico e dependências de `Infra.Message`. Implementar fábrica de geradores de DTOs com Bogus + `FrozenDictionary`, criar `MockTransactionsWorker` que respeita taxa configurável e publica via `IPublisherService`, expor CLI/variáveis para intensidade/destino e instrumentar logs/tracing, validando via RabbitMQ local.",
+			"reasoning": "O repositório atual não possui workers nem referências a Bogus/geradores; tudo terá de ser criado do zero (projeto, opções, generadores, hosting). Embora dependa da infraestrutura de mensageria, o escopo fica concentrado em um worker especializado, conferindo complexidade alta porém um pouco menor que a das camadas core."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Instrumentar observabilidade (OpenTelemetry, logs estruturados, health checks)",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Projetar módulo compartilhado (ex.: `Shared/Observability`) dado que hoje não existe nenhuma configuração OTel/Serilog. Implementar extensões que registrem `AddOpenTelemetry`, exporters OTLP/Prometheus e Serilog (OpenSearch + redaction). Aplicar essas extensões em todos os serviços/workers, garantir propagação de contexto nos publishers/consumidores e expor endpoints de health checks (live/ready) para web/hosts. Finalizar com cenário E2E validando traces, métricas e logs.",
+			"reasoning": "Não há código de observabilidade, health checks ou Serilog no repositório (somente o domínio). Atender a todos os serviços e mensageria com tracing, métricas, propagação `traceparent` e endpoints dedicados requer introduzir módulos transversais, configurar exporters externos e ajustar cada host, o que traz complexidade considerável."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Montar suíte de testes de integração e orquestração Docker/CI",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Criar `infra/docker-compose.yml` com Postgres, RabbitMQ, OpenSearch, Jaeger/Prometheus (nenhum arquivo existe hoje) e perfis local/CI. Adicionar projeto `Tests/Integration` usando DotNet.Testcontainers, implementando fixtures e cenários publicação→processamento→persistência/Outbox/Inbox. Configurar workflow `.github/workflows/ci.yml` com jobs build/unit/integration/docker-build e scripts auxiliares/devcontainer para padronizar ambiente. Validar compose/provisionamento e dotnet test no pipeline/local.",
+			"reasoning": "Atualmente só há diretório `.github/instructions` (sem workflows), nenhum docker-compose, nenhum projeto de testes além do domínio. Montar infraestrutura containerizada completa, testes de integração com Testcontainers, scripts/devcontainer e pipeline GitHub Actions representa um esforço transversal envolvendo múltiplas ferramentas e integrações, caracterizando alta complexidade."
+		}
+	]
+}

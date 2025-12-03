@@ -2,23 +2,25 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Atualizar solução para .NET 10 e propriedades compartilhadas",
         "description": "Migrar toda a solution para alvo net10.0, habilitando recursos de linguagem exigidos e alinhando pacotes às versões compatíveis.",
         "details": "Atualize `Directory.Build.props` para `<TargetFramework>net10.0</TargetFramework>`, habilite `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e defina `<AnalysisLevel>latest-all</AnalysisLevel>`. Centralize versões de pacotes (EntityFramework Core 10.0.0, RabbitMQ.Client ≥7.2.0, OpenTelemetry 1.14.0, Serilog 4.3.0). Execute `dotnet list package --outdated` e ajuste referências até o build ficar limpo. Pseudo:\n```\n<Project>\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n```\nGaranta que `dotnet build` e `dotnet test` rodem sem warnings críticos e atualize pipelines/containers para imagens SDK/runtime 10.",
         "testStrategy": "Executar `dotnet build` para todos os projetos, validar `dotnet test` (incluindo testes existentes) e revisar pipelines/dockerfiles para garantir sucesso com SDK 10.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Levantar solution e arquivos compartilhados existentes",
             "description": "Mapeie a estrutura atual do repositório para identificar onde estão a solution, projetos .csproj e arquivos compartilhados (Directory.Build.props/Directory.Packages.props), visto que hoje o repo contém apenas documentos.",
             "dependencies": [],
-            "details": "Use buscas glob (ex.: `rg --files -g '*.sln'`, `rg --files -g '*.csproj'`) e `dotnet sln list` para confirmar se a solution está ausente ou apenas em outro diretório; caso não exista, obtenha a versão vigente do projeto original ou crie os arquivos-base antes de prosseguir.",
-            "status": "pending",
-            "testStrategy": null
+            "details": "Use buscas glob (ex.: `rg --files -g '*.sln'`, `rg --files -g '*.csproj'`) e `dotnet sln list` para confirmar se a solution está ausente ou apenas em outro diretório; caso não exista, obtenha a versão vigente do projeto original ou crie os arquivos-base antes de prosseguir.\n<info added on 2025-12-03T00:10:42.465Z>\n`rg --files -g '*.sln'` não retornou resultados, confirmando que não há solution no repositório; `rg --files -g '*.csproj'` encontrou apenas `src/Domain/Domain.csproj`, já targeting `net10.0` com `<Nullable>`/`<ImplicitUsings>` habilitados e atualização do `SonarAnalyzer` via `<PackageReference Update=\"SonarAnalyzer.CSharp\" Version=\"10.8.0.113526\" />`; o único `Directory.Build.props` (src/Directory.Build.props) cuida somente de analisadores/estilo (`AnalysisLevel`/`AnalysisMode`, flags de warnings) e não propaga TargetFramework/Nullable/ImplicitUsings/AnalysisLevel latest-all para os projetos; não existe `Directory.Packages.props` em nenhum nível; há diretórios `bin/` e `obj/` dentro de `src/Domain/`; próximo passo: criar/atualizar um `Directory.Build.props` na raiz do repo para impor net10.0 + propriedades comuns e, em seguida, partir para a centralização de pacotes.\n</info added on 2025-12-03T00:10:42.465Z>",
+            "status": "done",
+            "testStrategy": null,
+            "updatedAt": "2025-12-03T00:10:45.077Z",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -27,9 +29,11 @@
             "dependencies": [
               1
             ],
-            "details": "Adicionar `<TargetFramework>net10.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e `<AnalysisLevel>latest-all</AnalysisLevel>`, garantindo que projetos multi-target mantenham condições específicas e que propriedades adicionais (Company, RepositoryUrl etc.) sejam preservadas.",
-            "status": "pending",
-            "testStrategy": null
+            "details": "Adicionar `<TargetFramework>net10.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e `<AnalysisLevel>latest-all</AnalysisLevel>`, garantindo que projetos multi-target mantenham condições específicas e que propriedades adicionais (Company, RepositoryUrl etc.) sejam preservadas.\n<info added on 2025-12-03T00:13:05.585Z>\nAplicar o novo `Directory.Build.props` na raiz (`Directory.Build.props`) com o `PropertyGroup` consolidando `<TargetFramework>net10.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `<AnalysisLevel>latest-all</AnalysisLevel>` e preservando `<AnalysisMode>All</AnalysisMode>`, `TreatWarningsAsErrors`, `CodeAnalysisTreatWarningsAsErrors` e `EnforceCodeStyleInBuild` exatamente como no arquivo anterior; adicionar o `ItemGroup` com `PackageReference` condicional para `SonarAnalyzer.CSharp` versão `10.8.0.113526` limitado a `*.csproj`. Remover o `src/Directory.Build.props` antigo (não deve existir conforme `find src -name 'Directory.Build.props'`) para evitar overrides e garantir que apenas o arquivo da raiz controle as propriedades globais.\n</info added on 2025-12-03T00:13:05.585Z>",
+            "status": "done",
+            "testStrategy": null,
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T00:13:09.431Z"
           },
           {
             "id": 3,
@@ -38,9 +42,11 @@
             "dependencies": [
               2
             ],
-            "details": "Executar `dotnet list package --outdated --include-transitive` em cada projeto para identificar gaps, atualizar as referências no props central ou nos csproj, validar restore e alinhar bindings (analyzers, Source Generators) com net10.",
-            "status": "pending",
-            "testStrategy": "Rodar `dotnet restore` e `dotnet list package --outdated` novamente para confirmar que não há versões pendentes."
+            "details": "Executar `dotnet list package --outdated --include-transitive` em cada projeto para identificar gaps, atualizar as referências no props central ou nos csproj, validar restore e alinhar bindings (analyzers, Source Generators) com net10.\n<info added on 2025-12-03T00:17:38.185Z>\nCentralizei as dependências em `Directory.Packages.props`, com `<ManagePackageVersionsCentrally>true</...>` e entradas para `Microsoft.EntityFrameworkCore`, `Relational` e `Design` 10.0.0, `RabbitMQ.Client` 7.2.0, `OpenTelemetry` + `OpenTelemetry.Extensions.Hosting` 1.14.0, `Serilog` 4.3.0, `Serilog.Sinks.Console` 5.0.1 e `Serilog.Extensions.Hosting` 8.0.0, permitindo que os `.csproj` apenas incluam os pacotes sem declarar versões; após qualquer nova referência, rode `dotnet restore` seguido de `dotnet list package --outdated --include-transitive` para validar que não ficaram pendências.\n</info added on 2025-12-03T00:17:38.185Z>",
+            "status": "done",
+            "testStrategy": "Rodar `dotnet restore` e `dotnet list package --outdated` novamente para confirmar que não há versões pendentes.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T00:17:40.399Z"
           },
           {
             "id": 4,
@@ -49,9 +55,11 @@
             "dependencies": [
               3
             ],
-            "details": "Atualizar code analyzers, suprimir warnings necessários via EditorConfig, revisar APIs obsoletas e ajustar project references até o build/test completar sem falhas ou warnings críticos em net10.",
-            "status": "pending",
-            "testStrategy": "Executar `dotnet build` e `dotnet test` em modo Verbose e revisar logs para garantir zero warnings críticos."
+            "details": "Atualizar code analyzers, suprimir warnings necessários via EditorConfig, revisar APIs obsoletas e ajustar project references até o build/test completar sem falhas ou warnings críticos em net10.\n<info added on 2025-12-03T00:24:18.642Z>\n`dotnet restore` seguido de `dotnet build src/Domain/Domain.csproj -clp:Summary` concluíram em net10.0 sem warnings (CS0628, CS8618, S1144, CA1062, CA1822); ajustes principais: src/Domain/Entities/BankAccount.cs usa `Balance { get; private set; }` e converteu os factories `Create` em métodos estáticos para alinhar com os analisadores; src/Domain/Entities/PixTransaction.cs inicializa `OriginPixKey` e `DestinationPixKey` com `string.Empty`, eliminando alertas de nullability/uso; src/Domain/Entities/Client.cs mantém `BankAccounts` apenas com getter e inicializa a coleção internamente para remover setters redundantes; src/Domain/Entities/Transaction.cs valida argumentos em `SetClient`/`SetBankAccount` com `ArgumentNullException.ThrowIfNull` cobrindo CA1062; não há projetos de teste no repositório, portanto `dotnet test` permanece não aplicado nesta etapa.\n</info added on 2025-12-03T00:24:18.642Z>",
+            "status": "done",
+            "testStrategy": "Executar `dotnet build` e `dotnet test` em modo Verbose e revisar logs para garantir zero warnings críticos.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T00:24:22.517Z"
           },
           {
             "id": 5,
@@ -60,14 +68,20 @@
             "dependencies": [
               4
             ],
-            "details": "Trocar tags `mcr.microsoft.com/dotnet/sdk` e runtime para 10, atualizar caches em workflows, validar que scripts de build/test/integration continuam funcionando e documentar o novo requisito de SDK nas instruções do projeto.",
-            "status": "pending",
-            "testStrategy": "Subir o compose atualizado localmente e disparar o workflow de CI (ou usar `act`) para confirmar que as imagens .NET 10 executam build/test com sucesso."
+            "details": "Trocar tags `mcr.microsoft.com/dotnet/sdk` e runtime para 10, atualizar caches em workflows, validar que scripts de build/test/integration continuam funcionando e documentar o novo requisito de SDK nas instruções do projeto.\n<info added on 2025-12-03T00:26:11.651Z>\nNenhum Dockerfile, docker-compose ou workflow existe no repositório no momento (buscas com `find .. -name 'Dockerfile*'`, `find .. -name '*.yml'`, `find .. -name '*.yaml'` e `rg --files -g '*.yml' .github` não retornaram resultados), portanto não há ajustes imediatos de tags. Registrar que qualquer pipeline ou container futuro deve nascer em `mcr.microsoft.com/dotnet/sdk:10`/runtime 10 e configurar `actions/setup-dotnet` com `dotnet-version: 10.x`, mantendo coerência com o `TargetFramework net10.0` já definido em `Directory.Build.props`.\n</info added on 2025-12-03T00:26:11.651Z>",
+            "status": "done",
+            "testStrategy": "Subir o compose atualizado localmente e disparar o workflow de CI (ou usar `act`) para confirmar que as imagens .NET 10 executam build/test com sucesso.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T00:26:14.967Z"
           }
-        ]
+        ],
+        "complexity": 6,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Mapeie a ausência atual de arquivos .sln (nenhum retorno de `rg --files -g '*.sln'`) e identifique todos os csproj existentes (hoje apenas `src/Domain/Domain.csproj`). Atualize `src/Directory.Build.props` para incluir TargetFramework net10.0, Nullable/ImplicitUsings habilitados e AnalysisLevel latest-all, criando `Directory.Packages.props` se necessário para centralizar versões (EF Core 10, RabbitMQ.Client >=7.2, OpenTelemetry 1.14, Serilog 4.3). Rode `dotnet list package --outdated`/`dotnet build`/`dotnet test` ajustando referências até ficarem limpos e crie ou atualize pipelines/Dockerfiles inexistentes para usar imagens SDK/runtime 10.",
+        "updatedAt": "2025-12-03T00:26:14.967Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Reestruturar camada Domain com entidades e DTOs aderentes ao TPH",
         "description": "Modelar entidades Client, BankAccount e Transaction (com derivadas Pix/Money/Card) seguindo Clean Architecture e habilitando validações invariantes.",
         "details": "Crie projeto `Domain` com record structs/ classes imutáveis onde aplicável. Estruture propriedades obrigatórias (`ClientId`, `Cpf`, `AccountNumber`, `Balance`, `TransactionId`, `Amount`, `Status`). Adicione métodos de negócio (`BankAccount.Debit`, `Credit`) retornando Result ou lançando DomainException específica. Pseudo:\n```\npublic sealed class BankAccount {\n  public Money Balance { get; private set; }\n  public void Debit(Money amount) {\n     if(Balance < amount) throw DomainException.InsufficientFunds;\n     Balance -= amount;\n  }\n}\n```\nDefina DTOs `PixTransactionDto`/`MoneyTransactionDto` e enums de status. Evite AutoMapper, portanto inclua mapeamentos manuais estáticos.",
@@ -83,7 +97,8 @@
             "dependencies": [],
             "details": "Utilize dotnet new classlib net10.0, ajuste Directory.Build.props conforme padrões existentes e introduza DomainException (estática para códigos conhecidos) e um tipo Result<T> imutável para retornos de operações.",
             "status": "pending",
-            "testStrategy": null
+            "testStrategy": null,
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -94,7 +109,8 @@
             ],
             "details": "Cada value object deve validar formato/limites na criação e expor operadores de comparação, protegendo invariantes; Money precisa de operações +/-, comparação e checagem de negativo; inclua métodos estáticos TryCreate retornando Result para integração com entidades.",
             "status": "pending",
-            "testStrategy": "Criar testes de fábrica garantindo rejeição de entradas inválidas e operações aritméticas corretas."
+            "testStrategy": "Criar testes de fábrica garantindo rejeição de entradas inválidas e operações aritméticas corretas.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -105,7 +121,8 @@
             ],
             "details": "Client deve garantir Cpf válido e rastrear contas via coleção somente leitura; BankAccount mantém Money Balance, histórico de TransactionIds e executa Debit/Credit retornando Result ou lançando DomainException.InsufficientFunds, atualizando Balance atomically.",
             "status": "pending",
-            "testStrategy": "Cobrir construções válidas/ inválidas, crédito sucessivo e débito com/sem saldo validando exceções ou resultados."
+            "testStrategy": "Cobrir construções válidas/ inválidas, crédito sucessivo e débito com/sem saldo validando exceções ou resultados.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -116,7 +133,8 @@
             ],
             "details": "A base deve conter TransactionId, ClientId, BankAccountId, Amount, Status e Timestamp; subclasses adicionam campos específicos; mantenha construtores protegidos e métodos ChangeStatus; crie DTOs imutáveis (record) e conversores estáticos entre entidades e DTOs sem AutoMapper.",
             "status": "pending",
-            "testStrategy": "Adicionar testes cobrindo criação das subclasses, mudança de status e round-trip entre entidade e DTO."
+            "testStrategy": "Adicionar testes cobrindo criação das subclasses, mudança de status e round-trip entre entidade e DTO.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -127,12 +145,16 @@
             ],
             "details": "Implemente testes com xUnit/NUnit verificando Result success/failure, exceções específicas e comportamento TPH (derivadas), incluindo casos limites de Money e BankAccount Debit/Credit; documente arrange/act/assert para fácil manutenção.",
             "status": "pending",
-            "testStrategy": "Executar dotnet test Domain.Tests garantindo 100% de passagem e cobrindo invariantes principais, inclusive exceções comparáveis."
+            "testStrategy": "Executar dotnet test Domain.Tests garantindo 100% de passagem e cobrindo invariantes principais, inclusive exceções comparáveis.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Crie um projeto Domain estruturado com Result/DomainException e pastas para Entities, ValueObjects e DTOs; hoje só há classes simples em `src/Domain/Entities`. Defina value objects (ClientId, AccountNumber, Money, etc.) com validações e enums de status/tipo. Reescreva entidades (`BankAccount`, `Transaction` e derivadas) para modelos imutáveis com comportamentos (Debit/Credit, invariantes) e produza DTOs/manuais para o cenário TPH. Adicione projeto Domain.Tests cobrindo invariantes, exceções e round-trips DTO ↔ entidade."
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implementar Infra.Database com EF Core, Unit of Work e migrações TPH",
         "description": "Fornecer DbContext configurado para PostgreSQL, entidades mapeadas em TPH e padrões Repository/UoW prontos para consumo.",
         "details": "Crie `MyLittleBankContext` herdando de `DbContext`, registre `DbSet<Client>`, `DbSet<BankAccount>`, `DbSet<Transaction>`. Configure `UseNpgsql` e `UseSnakeCaseNamingConvention`. Em `OnModelCreating`, defina TPH: `builder.HasDiscriminator<string>(\"transaction_type\")`. Configure `RowVersion`/concurrency tokens. Implante `IUnitOfWork` encapsulando `SaveChangesAsync`. Crie migrações com `dotnet ef migrations add Initial --project Infra.Database`. Pseudo:\n```\nprotected override void OnModelCreating(ModelBuilder modelBuilder) {\n  modelBuilder.Entity<Transaction>()\n    .HasDiscriminator<string>(\"transaction_type\")\n    .HasValue<PixTransaction>(\"pix\");\n}\n```\nInclua seeds opcionais com clients/contas mock.",
@@ -148,7 +170,8 @@
             "dependencies": [],
             "details": "Use `dotnet new classlib` para Infra.Database, atualize o csproj para net10.0 e registre pacotes Microsoft.EntityFrameworkCore*, Npgsql e ferramentas de migração; alinhe namespaces e pastas para Context, Configurations e Repositories.",
             "status": "pending",
-            "testStrategy": "Executar `dotnet build` na solução para garantir que o novo projeto compila e que os pacotes EF estão restaurados."
+            "testStrategy": "Executar `dotnet build` na solução para garantir que o novo projeto compila e que os pacotes EF estão restaurados.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -159,7 +182,8 @@
             ],
             "details": "Defina `MyLittleBankContext : DbContext`, injete `DbContextOptions`, exponha DbSet<Client>, BankAccount e Transaction; configure `UseNpgsql` e `UseSnakeCaseNamingConvention` em `AddDbContext`/factory e providencie construtor sem parâmetros para migrações se necessário.",
             "status": "pending",
-            "testStrategy": "Adicionar teste de integração simples que instancia o contexto com `UseInMemoryDatabase` e valida a criação dos DbSets."
+            "testStrategy": "Adicionar teste de integração simples que instancia o contexto com `UseInMemoryDatabase` e valida a criação dos DbSets.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -170,7 +194,8 @@
             ],
             "details": "No `OnModelCreating`, configure `modelBuilder.Entity<Transaction>().HasDiscriminator<string>(\"transaction_type\")` com valores `pix`, `money`, `card`; defina propriedades específicas via Fluent API, inclua `Property(x => x.RowVersion).IsRowVersion()` em entidades apropriadas e padronize nomes/índices (snake_case).",
             "status": "pending",
-            "testStrategy": "Criar teste usando `RelationalModel` do EF para garantir existência do discriminador e colunas de RowVersion em todas as tabelas."
+            "testStrategy": "Criar teste usando `RelationalModel` do EF para garantir existência do discriminador e colunas de RowVersion em todas as tabelas.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -181,7 +206,8 @@
             ],
             "details": "Defina `IRepository<T>` ou repositórios específicos com métodos básicos, implemente-os usando o `MyLittleBankContext`; crie `IUnitOfWork` com `Task<int> SaveChangesAsync(CancellationToken)` e, se aplicável, suporte a transações e `IDisposable/ IAsyncDisposable`.",
             "status": "pending",
-            "testStrategy": "Adicionar testes unitários com contexto InMemory validando que os repositórios manipulam entidades e que `UnitOfWork.SaveChangesAsync` propaga transações e exceções."
+            "testStrategy": "Adicionar testes unitários com contexto InMemory validando que os repositórios manipulam entidades e que `UnitOfWork.SaveChangesAsync` propaga transações e exceções.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -192,12 +218,16 @@
             ],
             "details": "Utilize `dotnet ef migrations add Initial --project Infra.Database` apontando para o csproj; revise a migration para garantir colunas snake_case, discriminador e RowVersion; adicione `HasData` para clientes/contas fake alinhados ao domínio e documente comando `dotnet ef database update`.",
             "status": "pending",
-            "testStrategy": "Rodar `dotnet ef database update` contra Postgres local e inspecionar tabelas/Seeds; executar testes de integração que façam CRUD básico confirmando o modelo TPH."
+            "testStrategy": "Rodar `dotnet ef database update` contra Postgres local e inspecionar tabelas/Seeds; executar testes de integração que façam CRUD básico confirmando o modelo TPH.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Adicione o projeto `Infra.Database` (não há nenhum diretório correspondente nos resultados de `rg --files`), referencie o Domain existente e inclua pacotes EF Core/Npgsql. Implemente `MyLittleBankContext` com `DbSet` para Client/BankAccount/Transaction, configure `UseNpgsql`/SnakeCase, RowVersion e TPH no `OnModelCreating`. Crie repositórios e `IUnitOfWork` com `SaveChangesAsync`, gere migração inicial (`dotnet ef migrations add Initial --project Infra.Database`) e valide contra Postgres local."
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implementar Outbox/Inbox e dispatcher confiável no banco",
         "description": "Adicionar tabelas e serviços para garantir entrega exatamente-uma-vez entre banco e RabbitMQ.",
         "details": "No `Infra.Database`, crie tabelas `outbox_messages` e `inbox_messages` com colunas `MessageId`, `Payload`, `OccurredOn`, `SentOn`, `Status`. No fluxo de domínio, salve eventos pendentes no Outbox via UnitOfWork. Desenvolva `OutboxDispatcher` como `BackgroundService` lendo lotes com `FOR UPDATE SKIP LOCKED`, publicando via `IPublisherService` e marcando como processado. Inbox: durante consumo, verifique `InboxMessages` antes de aplicar transação e insira registro para idempotência. Pseudo:\n```\nawait using var tx = await _db.Database.BeginTransactionAsync();\n_db.Outbox.Add(message);\nawait _db.SaveChangesAsync();\nawait tx.CommitAsync();\n```\nAdicionar política de retenção e limpeza.",
@@ -213,7 +243,8 @@
             "dependencies": [],
             "details": "Adicionar entidades EF correspondentes, configurar `MessageId` como chave primária GUID, colunas `Payload` (JSONB), `OccurredOn/SentOn` e `Status`, gerar migração inicial apontando para PostgreSQL e garantir índices por status/data.",
             "status": "pending",
-            "testStrategy": "Executar migração em Postgres local e validar esquema/índices com `\\\\d` ou ferramentas EF."
+            "testStrategy": "Executar migração em Postgres local e validar esquema/índices com `\\\\d` ou ferramentas EF.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -224,7 +255,8 @@
             ],
             "details": "Atualizar UnitOfWork/repositórios para coletar eventos de domínio, converter em registros `OutboxMessage` e salvá-los antes do commit (`BeginTransactionAsync` + `SaveChangesAsync`), garantindo `OccurredOn` e `Status=Pending`.",
             "status": "pending",
-            "testStrategy": "Criar testes unitários/integrados que disparem eventos, executem UoW e confirmem registros correspondentes em `outbox_messages`."
+            "testStrategy": "Criar testes unitários/integrados que disparem eventos, executem UoW e confirmem registros correspondentes em `outbox_messages`.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -236,7 +268,8 @@
             ],
             "details": "Desenvolver `OutboxDispatcher` lendo lotes com `FOR UPDATE SKIP LOCKED`, publicando via `IPublisherService`, marcando `SentOn`/`Status=Sent` ou `Failed`, aplicando backoff e métricas/logs; parametrizar tamanho de lote e intervalo.",
             "status": "pending",
-            "testStrategy": "Testes de integração simulando falhas de publicação (ex.: exceptions) e retomada posterior confirmando alteração de status e reenvio."
+            "testStrategy": "Testes de integração simulando falhas de publicação (ex.: exceptions) e retomada posterior confirmando alteração de status e reenvio.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -247,7 +280,8 @@
             ],
             "details": "Antes de executar lógica de negócios no consumidor, verificar `inbox_messages` por `MessageId`; se inexistente, iniciar transação, inserir registro `Received` e somente então aplicar comando; confirmar commit e ignorar duplicatas subsequentes.",
             "status": "pending",
-            "testStrategy": "Testes de integração consumindo a mesma mensagem duas vezes e comprovando que apenas a primeira altera o estado de domínio."
+            "testStrategy": "Testes de integração consumindo a mesma mensagem duas vezes e comprovando que apenas a primeira altera o estado de domínio.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -259,12 +293,16 @@
             ],
             "details": "Criar job/command que remove registros com `Status=Sent`/`Processed` após janela configurável e falhas antigas, expor configurações e métricas; compor testes end-to-end cobrindo dispatcher interrompido, limpeza e deduplicação.",
             "status": "pending",
-            "testStrategy": "Rodar cenário onde dispatcher é abatido durante envio, reinicia e completa mensagens; validar execução do job de limpeza e integridade final."
+            "testStrategy": "Rodar cenário onde dispatcher é abatido durante envio, reinicia e completa mensagens; validar execução do job de limpeza e integridade final.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 9,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Dentro do projeto Infra.Database (a ser criado), modele entidades Outbox/Inbox e respectivas tabelas/mapeamentos EF. Ajuste o UnitOfWork para persistir eventos de domínio no Outbox na mesma transação e crie `OutboxDispatcher` como BackgroundService que lê lotes com `FOR UPDATE SKIP LOCKED`, publica via `IPublisherService` e atualiza status/retentativa. Implemente lógica Inbox para consumidores consultarem/registrarem mensagens idempotentes e adicione rotinas de limpeza e testes de falha/retomada."
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Criar infraestrutura RabbitMQ (connection factory, publisher, consumer) com retries/DLQ",
         "description": "Desenvolver `Infra.Message` responsável por conexões duráveis, publicação confirmada e consumo com controle de erros.",
         "details": "Implemente `RabbitConnectionFactory` usando `ConnectionFactory` configurada com TLS e credenciais via `IOptions<RabbitOptions>`. `PublisherService` deve usar `IModel.ConfirmSelect()`, publicar com `IBasicProperties` contendo `MessageId`, `traceparent`, `ContentType`. `ConsumerService<T>` herda de `BackgroundService`, usa `BasicQos` para prefetch, `BasicConsume` com manual ack. Configure exchanges/queues via `IRabbitTopologyBootstrapper` definindo TTL e DLQ: `args[\"x-dead-letter-exchange\"] = \"dlx.transactions\"`. Retentativas: mover para fila de atraso com headers `x-death` e contagem limitada antes de DLQ. Pseudo:\n```\n_channel.BasicPublish(exchange, routingKey, true, props, body);\n_channel.WaitForConfirmsOrDie();\n```\nDocumentar convenções de nomenclatura.",
@@ -280,7 +318,8 @@
             "dependencies": [],
             "details": "Adicione projeto/pasta `Infra/Message`, defina `IRabbitConnectionFactory`, `IRabbitTopologyBootstrapper`, DTOs de configuração (hosts, TLS, credenciais, exchanges, filas, TTLs) e registre validação `OptionsBuilder` com `ValidateOnStart` para garantir segredos/envs corretos.",
             "status": "pending",
-            "testStrategy": "Crie testes unitários simples garantindo que `OptionsValidationException` é lançada quando propriedades obrigatórias estão ausentes."
+            "testStrategy": "Crie testes unitários simples garantindo que `OptionsValidationException` é lançada quando propriedades obrigatórias estão ausentes.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -291,7 +330,8 @@
             ],
             "details": "Instancie `ConnectionFactory` com `Uri`, `UserName`, `Password`, `DispatchConsumersAsync=true`, `AutomaticRecoveryEnabled=true`, configure TLS (`Ssl.Enabled=true`, `ServerName`, `CertificateValidationCallback`). Exponha métodos para criar `IConnection` resiliente e `IModel`, com logging/OpenTelemetry e fallback a políticas de retry.",
             "status": "pending",
-            "testStrategy": "Usar testes de integração com container RabbitMQ TLS (Testcontainers) validando handshake, reconexão automática e criação de `IModel`."
+            "testStrategy": "Usar testes de integração com container RabbitMQ TLS (Testcontainers) validando handshake, reconexão automática e criação de `IModel`.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -303,7 +343,8 @@
             ],
             "details": "Implemente `PublisherService` recebendo `IRabbitConnectionFactory`, inicialize `IModel` com `ConfirmSelect()`, crie método `PublishAsync` que aplica `IBasicProperties` (`MessageId`, `ContentType`, `DeliveryMode=2`, headers `traceparent`, `traceId`), chama `BasicPublish` com `mandatory=true` e aguarda `_channel.WaitForConfirmsOrDie()`, registrando métricas e tratamento de `AlreadyClosedException`.",
             "status": "pending",
-            "testStrategy": "Escrever teste de integração publicando mensagens em exchange real, verificando `WaitForConfirms` e persistência de headers via `BasicGet`."
+            "testStrategy": "Escrever teste de integração publicando mensagens em exchange real, verificando `WaitForConfirms` e persistência de headers via `BasicGet`.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -315,7 +356,8 @@
             ],
             "details": "Configure `_channel.BasicQos(0, prefetch, false)`, inicialize `AsyncEventingBasicConsumer`, use `BasicConsume` com `autoAck=false`. No handler: desserializar com `System.Text.Json` source-generated, chamar handler abstrato `ProcessMessageAsync`, aplicar idempotência básica, tratar falhas inspecionando header `x-death` para decidir requeue, mover para fila de atraso via `BasicPublish` com TTL e, quando limite excedido, roteie para DLQ `dlx.transactions` antes de `BasicAck`/`BasicNack`.",
             "status": "pending",
-            "testStrategy": "Executar testes end-to-end em container RabbitMQ simulando falhas sucessivas para validar `BasicAck/Nack`, incrementos `x-death` e envio à DLQ."
+            "testStrategy": "Executar testes end-to-end em container RabbitMQ simulando falhas sucessivas para validar `BasicAck/Nack`, incrementos `x-death` e envio à DLQ.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -329,12 +371,16 @@
             ],
             "details": "Implemente `RabbitTopologyBootstrapper` criando exchanges tipo `direct`/`topic`, filas principais, filas de atraso (TTL via `x-message-ttl`, `x-dead-letter-exchange`, `x-dead-letter-routing-key`) e DLQ `dlx.transactions`. Documente convenções (prefixos `svc.` para exchanges, `queue.transactions.<tipo>`, `delay.<tipo>`) em README/ADR. Exponha método para execução no startup garantindo idempotência.",
             "status": "pending",
-            "testStrategy": "Escrever testes de integração que executam o bootstrapper em container limpo e verificam via `IModel.QueueDeclarePassive` os argumentos configurados corretamente, além de revisar documentação renderizada."
+            "testStrategy": "Escrever testes de integração que executam o bootstrapper em container limpo e verificam via `IModel.QueueDeclarePassive` os argumentos configurados corretamente, além de revisar documentação renderizada.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Crie um projeto `Infra.Message` (não há referências a RabbitMQ fora do PRD) contendo contratos/opções (`RabbitOptions`), `RabbitConnectionFactory` com TLS/reconexão, `PublisherService` com `ConfirmSelect`/WaitForConfirms e `RabbitConsumerService<T>` com `BasicQos`, ack manual, retries, filas de atraso e DLQ. Acrescente `RabbitTopologyBootstrapper` para exchanges/filas com TTL/DLQ e documentação das convenções."
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Implementar UseCases de processamento de transações",
         "description": "Codificar casos de uso (ex.: ProcessPixTransaction) que coordenam domínio, UoW e mensagens de saída.",
         "details": "Crie `ProcessTransactionsHandler` com métodos específicos por tipo. Cada método deve:\n1. Resolver `BankAccount` origem/destino via repositórios.\n2. Invocar regras de domínio (`Debit/Credit`).\n3. Persistir via UnitOfWork.\n4. Registrar eventos em Outbox (ex.: `TransactionProcessedEvent`).\nPseudo:\n```\npublic async Task Handle(PixTransactionDto dto) {\n  await using var uow = _uowFactory.Create();\n  var account = await _accounts.GetAsync(dto.AccountId);\n  account.Debit(dto.Amount);\n  await uow.SaveChangesAsync(cancellationToken);\n}\n```\nSem AutoMapper: converta DTO->entidade manualmente. Implementar validações (saldo, limites, status).",
@@ -350,7 +396,8 @@
             "dependencies": [],
             "details": "Revisar o PRD e o código existente para listar interfaces (ex.: IBankAccountRepository, ITransactionRepository, IUnitOfWorkFactory, IOutboxService) e os DTOs por tipo de transação, definindo também invariantes de saldo, status e limites que cada método deverá validar manualmente.",
             "status": "pending",
-            "testStrategy": "Revise com o time de domínio se todos os contratos necessários foram identificados antes de codificar."
+            "testStrategy": "Revise com o time de domínio se todos os contratos necessários foram identificados antes de codificar.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -361,7 +408,8 @@
             ],
             "details": "Escrever a classe `ProcessTransactionsHandler`, validar argumentos, criar helpers para carregar contas e abrir o ciclo `await using var uow = _uowFactory.Create();`, mapear DTOs manualmente e expor `HandleAsync` que roteia para `ProcessPixTransaction`, `ProcessMoneyTransaction` ou `ProcessCardTransaction`, compartilhando lógica de logs e erros.",
             "status": "pending",
-            "testStrategy": "Criar testes unitários com dependências mockadas verificando instância correta, roteamento por tipo e abertura/fechamento do UoW."
+            "testStrategy": "Criar testes unitários com dependências mockadas verificando instância correta, roteamento por tipo e abertura/fechamento do UoW.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -372,7 +420,8 @@
             ],
             "details": "Buscar conta origem/destino pelos repositórios, validar status, limites Pix e saldo antes de chamar `Debit`/`Credit`, mapear DTO para entidade `PixTransaction`, anexar ao contexto, registrar `TransactionProcessedEvent` no Outbox e confirmar via UoW com tratamento de exceções e logs.",
             "status": "pending",
-            "testStrategy": "Escrever testes unitários simulando repositórios fake para verificar débito correto, rejeição de saldo insuficiente e publicação do evento no Outbox fake."
+            "testStrategy": "Escrever testes unitários simulando repositórios fake para verificar débito correto, rejeição de saldo insuficiente e publicação do evento no Outbox fake.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -383,7 +432,8 @@
             ],
             "details": "Reutilizar helpers para buscar contas, validar limites diários, estado da conta e pertencimento ao mesmo banco quando necessário, criar entidade `MoneyTransaction`, aplicar `Debit`/`Credit`, persistir no repositório de transações e registrar evento na Outbox antes de confirmar o UoW.",
             "status": "pending",
-            "testStrategy": "Criar testes de integração leve usando repositórios em memória para assegurar atualização de saldo duplo, rollback em falha e registro do evento."
+            "testStrategy": "Criar testes de integração leve usando repositórios em memória para assegurar atualização de saldo duplo, rollback em falha e registro do evento.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -396,12 +446,16 @@
             ],
             "details": "Resolver conta associada ao cartão, validar status do cartão, limites por transação e antifraude, criar `CardTransaction`, executar `Debit`, persistir via UoW e registrar `TransactionProcessedEvent` com payload adequado no Outbox garantindo idempotência e metadados (MessageId, traceparent).",
             "status": "pending",
-            "testStrategy": "Adicionar testes cobrindo limites de cartão, verificação de evento gerado com payload correto e commit único do UoW/Outbox."
+            "testStrategy": "Adicionar testes cobrindo limites de cartão, verificação de evento gerado com payload correto e commit único do UoW/Outbox.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Defina contratos necessários (repositories, UoW factory, serviços de Outbox) para `ProcessTransactionsHandler`, tomando como base que apenas o domínio cru existe hoje. Implementar classe base que roteia DTOs para métodos específicos, além dos fluxos `ProcessPixTransaction`, `ProcessMoneyTransaction` e `ProcessCardTransaction` realizando validações, debit/credit via entidades e registro no Outbox. Garanta testes unitários/integrados simulando repositórios e Outbox."
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Desenvolver serviços consumidores Pix/Money/Card e publisher de heartbeat",
         "description": "Criar workers hospedados (BackgroundService) que utilizam `Infra.Message` e `UseCases` para processar filas dedicadas e manter monitoramento.",
         "details": "Para cada serviço em `Services/*`, configure `Host.CreateApplicationBuilder`, registre DbContext, UseCases e Consumer. `PixTransactionReceiver : RabbitConsumerService<PixTransactionDto>` decodifica payload com `System.Text.Json` source-generated context. Utilize `CancellationToken` para shutdown gracioso e `ValueTask` nos handlers críticos. Heartbeat: `HeartbeatPublisher` publica mensagem `service:status` a cada intervalo, `HeartbeatConsumer` atualiza `ServiceStatus` em cache/DB. Pseudo:\n```\nprotected override async Task HandleMessage(byte[] body) {\n  var dto = PixTransactionContext.Deserialize(body);\n  await _processPix.Handle(dto);\n}\n```\nConfigurar `appsettings` por serviço e arquivos Docker multi-stage.",
@@ -417,7 +471,8 @@
             "dependencies": [],
             "details": "Identificar classes como `RabbitConnectionFactory`, `RabbitConsumerService<T>`, `MyLittleBankContext` e handlers em `UseCases` para garantir que os serviços consumidores possam injetá-los corretamente via `Host.CreateApplicationBuilder`. Documentar quais opções (`RabbitOptions`, `DatabaseOptions`) precisam estar disponíveis e quais filas/exchanges cada worker utilizará.",
             "status": "pending",
-            "testStrategy": "Checklist/manual: validar que todas as dependências necessárias foram mapeadas e possuem configurações disponíveis antes de iniciar a codificação."
+            "testStrategy": "Checklist/manual: validar que todas as dependências necessárias foram mapeadas e possuem configurações disponíveis antes de iniciar a codificação.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -428,7 +483,8 @@
             ],
             "details": "Cada projeto deve configurar DI adicionando `DbContext` com connection string do appsettings, registrar repositórios/UseCases necessários e adicionar o respectivo consumer como `HostedService`. Garantir suporte a `CancellationToken` no shutdown, logging configurado e validação de opções `IOptions<>`. Estruturar Program.cs minimalista com `await builder.Build().RunAsync();`.",
             "status": "pending",
-            "testStrategy": "Executar `dotnet run` localmente para cada serviço verificando startup e health endpoints (se configurados) sem conectar ao broker."
+            "testStrategy": "Executar `dotnet run` localmente para cada serviço verificando startup e health endpoints (se configurados) sem conectar ao broker.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -439,7 +495,8 @@
             ],
             "details": "Criar DTO contexts (ex.: `PixTransactionContext`) para deserialização eficiente; sobrescrever `HandleMessage(ReadOnlyMemory<byte> body, CancellationToken ct)` retornando `ValueTask`, convertendo payload e invocando o handler correspondente. Configurar prefetch/queues via opções, tratar exceptions com retries e DLQ conforme `Infra.Message`. Garantir instrumentação mínima (logs, traceparent) e propagação de `CancellationToken`.",
             "status": "pending",
-            "testStrategy": "Testes locais simulando mensagens usando RabbitMQ container ou mocks: publicar mensagens nas filas e confirmar processamento/ack manual e tratamento de falhas (retry + DLQ)."
+            "testStrategy": "Testes locais simulando mensagens usando RabbitMQ container ou mocks: publicar mensagens nas filas e confirmar processamento/ack manual e tratamento de falhas (retry + DLQ).",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -450,7 +507,8 @@
             ],
             "details": "Publisher deve usar `IPublisherService` para enviar mensagens `service:status` em intervalos configuráveis (options + timer), incluindo `traceparent`. Consumer deve herdar de `RabbitConsumerService<HeartbeatDto>`, atualizar `ServiceStatus` no banco ou cache e garantir idempotência via Inbox quando disponível. Ambos devem respeitar `CancellationToken`, suportar `ValueTask` e expor métricas/logs básicos.",
             "status": "pending",
-            "testStrategy": "Testes integrados simulando parada/retomada: verificar que publisher emite mensagens no intervalo e consumer persiste estados corretos; pode usar RabbitMQ local ou mocks para validar lógica."
+            "testStrategy": "Testes integrados simulando parada/retomada: verificar que publisher emite mensagens no intervalo e consumer persiste estados corretos; pode usar RabbitMQ local ou mocks para validar lógica.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -462,12 +520,16 @@
             ],
             "details": "Cada serviço deve possuir configuração própria apontando para fila/exchange correta, connection strings e valores de heartbeat. Dockerfiles multi-stage devem restaurar/buildar projetos, copiar configs e definir entrypoint. Atualizar `docker-compose` (se existir) para incluir os novos services. Realizar smoke tests executando containers e simulando cancelamento para confirmar encerramento ordenado.",
             "status": "pending",
-            "testStrategy": "Rodar `docker build`/`docker compose up` para todos os serviços e verificar logs, conexões ao RabbitMQ/Postgres e desligamento via SIGTERM sem mensagens perdidas."
+            "testStrategy": "Rodar `docker build`/`docker compose up` para todos os serviços e verificar logs, conexões ao RabbitMQ/Postgres e desligamento via SIGTERM sem mensagens perdidas.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Criar projetos `Services/Pix`, `Services/Money`, `Services/Card` (nenhum existe hoje) que inicializam `Host.CreateApplicationBuilder`, registram DbContext/Infra.Message/UseCases e adicionam consumidores específicos herdando do `RabbitConsumerService<T>`. Implementar receivers usando `System.Text.Json` source-generated, lidar com CancellationToken/logs e criar `HeartbeatPublisher/Consumer`. Completar com configs appsettings, health checks e Dockerfiles para cada worker."
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implementar Mock.Transactions e pipelines de publicação assíncrona",
         "description": "Construir worker gerador de transações para testes/demos, utilizando `Infra.Message` para publicar em exchanges corretas.",
         "details": "Crie `MockTransactionsWorker` que lê configurações (ex.: taxa de mensagens por segundo) e gera DTOs com `Bogus`. Suporta múltiplos tipos usando `FrozenDictionary<string, Func<TransactionDto>>` para reduzir alocação. Pseudo:\n```\nwhile(!stoppingToken.IsCancellationRequested){\n  var dto = _generators[type]();\n  await _publisher.PublishAsync(route, dto, headers);\n  await Task.Delay(_settings.Interval, stoppingToken);\n}\n```\nAdicionar CLI args para escolher intensidade e destino. Garantir tracing/MessageId aderentes ao pipeline.",
@@ -483,7 +545,8 @@
             "dependencies": [],
             "details": "Adicionar projeto `Mock.Transactions` ao solution file, referenciando `Infra.Message` e pacotes necessários (`Bogus`, `Microsoft.Extensions.Hosting`). Criar `MockTransactionsSettings` com propriedades como `MessagesPerSecond`, `RoutingKey`, `Exchange`, `Headers` default. Registrar as opções via `IOptions<T>` lendo `appsettings` e sobrescrevendo por variáveis/CLI. Garantir que `Program.cs` usa `Host.CreateApplicationBuilder`, adiciona logging padrão e injeta as opções no container para consumo pelo worker.",
             "status": "pending",
-            "testStrategy": "Executar `dotnet build Mock.Transactions` e validar binding das opções com `OptionsValidation` em testes rápidos."
+            "testStrategy": "Executar `dotnet build Mock.Transactions` e validar binding das opções com `OptionsValidation` em testes rápidos.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -494,7 +557,8 @@
             ],
             "details": "Definir DTOs reutilizáveis (ex.: `PixTransactionDto`, `TransferTransactionDto`) em um assembly compartilhado ou no próprio projeto. Criar classe `TransactionDtoGeneratorFactory` que inicializa `FrozenDictionary<string, Func<TransactionDto>>` contendo funções construídas com `Bogus` e seeds configuráveis. Cada gerador deve preencher campos (ids, valores, contas, metadata) coerentes e permitir extensão para novos tipos. Expor API thread-safe para o worker solicitar geradores pelo tipo desejado, incluindo validação de tipos registrados.",
             "status": "pending",
-            "testStrategy": "Adicionar testes de unidade que chamam cada gerador múltiplas vezes verificando campos obrigatórios, ranges e uso correto de seeds/FrozenDictionary."
+            "testStrategy": "Adicionar testes de unidade que chamam cada gerador múltiplas vezes verificando campos obrigatórios, ranges e uso correto de seeds/FrozenDictionary.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -505,7 +569,8 @@
             ],
             "details": "Implementar `MockTransactionsWorker : BackgroundService` recebendo `TransactionDtoGeneratorFactory`, `IPublisherService` de `Infra.Message`, `IOptionsMonitor<MockTransactionsSettings>`, logger e `IActivitySource`. No loop principal, escolher tipo/destino atual, produzir DTO (`var dto = _generators[type]()`), construir headers (`MessageId`, `traceparent`, `ContentType`, tags customizadas) e chamar `_publisher.PublishAsync(exchange, routingKey, dto, headers, stoppingToken)`. Respeitar taxa configurada calculando `Task.Delay(TimeSpan.FromSeconds(1/rate))` ou `settings.Interval`, suportar múltiplos destinos e logar métricas básicas.",
             "status": "pending",
-            "testStrategy": "Criar testes usando stub de `IPublisherService` confirmando frequência aproximada, propagação de headers e cancelamento quando `stoppingToken` é sinalizado."
+            "testStrategy": "Criar testes usando stub de `IPublisherService` confirmando frequência aproximada, propagação de headers e cancelamento quando `stoppingToken` é sinalizado.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -516,7 +581,8 @@
             ],
             "details": "Utilizar `System.CommandLine` (ou equivalentes) para aceitar argumentos como `--rate`, `--transaction-type`, `--exchange`, `--routing-key` e converter em `MockTransactionsSettings`. Mapear variáveis de ambiente (ex.: `MOCK_TX_RATE`) como fallback. No `Program.cs`, registrar `Infra.Message` (connection factory, publisher) e os geradores via DI, garantindo que opções dinâmicas atualizem `IOptionsMonitor`. Fornecer mensagens de ajuda e validação de argumentos, permitindo múltiplas instâncias do worker se necessário.",
             "status": "pending",
-            "testStrategy": "Executar `dotnet run -- --rate 25 --transaction-type pix` e verificar via logs que opções foram aplicadas; adicionar testes unitários do parser de argumentos."
+            "testStrategy": "Executar `dotnet run -- --rate 25 --transaction-type pix` e verificar via logs que opções foram aplicadas; adicionar testes unitários do parser de argumentos.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -527,12 +593,16 @@
             ],
             "details": "Configurar `ActivitySource`/OpenTelemetry no worker para criar spans envolvendo geração e publicação; propagar `traceparent`/`tracestate` para `Infra.Message`. Adicionar logs estruturados com throughput e erros. Produzir script/docker-compose (ou instruções) para subir RabbitMQ local, executar worker com parâmetros diferentes e confirmar roteamento para filas esperadas, incluindo validação de headers/MessageId. Documentar métricas esperadas e como desligar o worker com cancelamento gracioso.",
             "status": "pending",
-            "testStrategy": "Rodar worker contra RabbitMQ local (`docker compose up rabbitmq && dotnet run ...`), inspecionar filas/headers via `rabbitmqadmin` ou UI e verificar logs/traces confirmando throughput e propagação de contexto."
+            "testStrategy": "Rodar worker contra RabbitMQ local (`docker compose up rabbitmq && dotnet run ...`), inspecionar filas/headers via `rabbitmqadmin` ou UI e verificar logs/traces confirmando throughput e propagação de contexto.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Adicionar projeto `Mock.Transactions` inexistente, configurando opções (`MockTransactionsSettings`), host genérico e dependências de `Infra.Message`. Implementar fábrica de geradores de DTOs com Bogus + `FrozenDictionary`, criar `MockTransactionsWorker` que respeita taxa configurável e publica via `IPublisherService`, expor CLI/variáveis para intensidade/destino e instrumentar logs/tracing, validando via RabbitMQ local."
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Instrumentar observabilidade (OpenTelemetry, logs estruturados, health checks)",
         "description": "Adicionar tracing, métricas e logging estruturado em todos os serviços com propagação de contexto via RabbitMQ e health checks para infraestrutura.",
         "details": "Use `builder.Services.AddOpenTelemetry()` com `ResourceBuilder.CreateDefault().AddService(serviceName)`. Adicione `AddOtlpExporter` para traces/métricas, `AddPrometheusExporter` quando aplicável. No publisher/consumer, propague `traceparent`/`tracestate` nos headers e extraia antes do processamento. Configurar `Serilog` com sink OpenSearch (Elastic Common Schema) e redaction de PII. Health checks: `services.AddHealthChecks().AddNpgSql(conn).AddRabbitMQ()`. Expor endpoints `health/live` e `health/ready`. Pseudo:\n```\nusing var activity = _activitySource.StartActivity(\"Process Pix\");\nactivity?.SetTag(\"transaction.id\", dto.Id);\n```\n",
@@ -548,7 +618,8 @@
             "dependencies": [],
             "details": "Adicionar extensões como `AddObservability(this IServiceCollection services, string serviceName, IConfiguration config)` que internamente chama `builder.Services.AddOpenTelemetry()` com `ResourceBuilder.CreateDefault().AddService(serviceName)`, registra `AddAspNetCoreInstrumentation`, `AddHttpClientInstrumentation`, `AddEntityFrameworkCoreInstrumentation`, `AddOtlpExporter` (traces e métricas) e `AddPrometheusExporter` quando habilitado. Configurar `Serilog` lendo `Serilog:OpenSearch` do appsettings, usando sink compatível com Elastic Common Schema e `Destructuring.WithRedact` para PII. Garantir configuração de `ActivitySource` nomeado por serviço.",
             "status": "pending",
-            "testStrategy": "Executar testes de inicialização `HostBuilder`/`WebApplicationFactory` garantindo que DI resolve ILogger e TracerProvider sem exceções."
+            "testStrategy": "Executar testes de inicialização `HostBuilder`/`WebApplicationFactory` garantindo que DI resolve ILogger e TracerProvider sem exceções.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -559,7 +630,8 @@
             ],
             "details": "Em cada `Program.cs` chamar `builder.Services.AddObservability(serviceName, builder.Configuration)` e `builder.Host.UseSerilog(...)`. Garantir que o `ResourceBuilder` receba atributos como ambiente, versão e deployment.id. Expor endpoints de métricas Prometheus via `app.MapPrometheusScrapingEndpoint()` quando for serviço web, ou hospedar `MeterProvider` em workers. Documentar variáveis (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `SERILOG__...`) e adicionar exemplos nos arquivos `appsettings` e `.env`.",
             "status": "pending",
-            "testStrategy": "Rodar `dotnet run` de um serviço e verificar logs estruturados, `/metrics` acessível e spans chegando ao collector local."
+            "testStrategy": "Rodar `dotnet run` de um serviço e verificar logs estruturados, `/metrics` acessível e spans chegando ao collector local.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -570,7 +642,8 @@
             ],
             "details": "No `PublisherService`, antes de publicar mensagens, usar `Propagators.DefaultTextMapPropagator.Inject(new PropagationContext(Activity.Current?.Context ?? default, Baggage.Current), props.Headers, (headers, key, value) => headers[key] = Encoding.UTF8.GetBytes(value));`. No `ConsumerService`, extrair com `TryExtract` e iniciar `ActivitySource.StartActivity(\"Consume <queue>\", ActivityKind.Consumer, parentContext.ActivityContext)` adicionando tags (transaction.id, retry.count). Garantir que DTOs/logs anotem IDs correlacionados. Atualizar contratos para passar headers e validar fallback quando não houver atividade corrente.",
             "status": "pending",
-            "testStrategy": "Escrever testes unitários usando `ActivitySource` in-memory verificando que headers são criados/extratos e que spans possuem tags esperadas."
+            "testStrategy": "Escrever testes unitários usando `ActivitySource` in-memory verificando que headers são criados/extratos e que spans possuem tags esperadas.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -581,7 +654,8 @@
             ],
             "details": "Registrar `services.AddHealthChecks().AddNpgSql(connectionString, name: \"postgres\").AddRabbitMQ(rabbitConnectionString, name: \"rabbitmq\")` e qualquer dependência extra (OpenSearch, OTLP). Mapear `app.MapHealthChecks(\"/health/live\", new HealthCheckOptions { Predicate = _ => false })` para liveness e `app.MapHealthChecks(\"/health/ready\", new HealthCheckOptions { ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse })` para readiness, adicionando filtros por tags. Para workers, expor HTTP minimal host ou usar `AspNetCoreHealthChecks` com `IHost`. Atualizar docker-compose/Kubernetes probes para usar os novos endpoints.",
             "status": "pending",
-            "testStrategy": "Rodar `dotnet test` com testes que mockam falha de conexão (ex.: usar `TestServer` e `NpgsqlConnection` fake) validando códigos 200/503 nos endpoints."
+            "testStrategy": "Rodar `dotnet test` com testes que mockam falha de conexão (ex.: usar `TestServer` e `NpgsqlConnection` fake) validando códigos 200/503 nos endpoints.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -593,12 +667,16 @@
             ],
             "details": "Subir stack de observabilidade (docker compose com OTLP collector, Jaeger/Tempo, Prometheus, OpenSearch). Executar fluxo completo (publicar transações fictícias, processar nos serviços) confirmando que spans mostram relação publisher→consumer→database, métricas exibem latência e retries e logs chegam ao índice ECS, incluindo campos de correlação. Documentar no README/Runbook como configurar variáveis, interpretar dashboards e proceder com troubleshooting. Registrar scripts de smoke test para health endpoints.",
             "status": "pending",
-            "testStrategy": "Rodar compose localmente, emitir tráfego e verificar Jaeger/Tempo para spans correlacionados, Prometheus para métricas customizadas e OpenSearch para logs estruturados com `transaction.id`. Documentar resultados e capturas."
+            "testStrategy": "Rodar compose localmente, emitir tráfego e verificar Jaeger/Tempo para spans correlacionados, Prometheus para métricas customizadas e OpenSearch para logs estruturados com `transaction.id`. Documentar resultados e capturas.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Projetar módulo compartilhado (ex.: `Shared/Observability`) dado que hoje não existe nenhuma configuração OTel/Serilog. Implementar extensões que registrem `AddOpenTelemetry`, exporters OTLP/Prometheus e Serilog (OpenSearch + redaction). Aplicar essas extensões em todos os serviços/workers, garantir propagação de contexto nos publishers/consumidores e expor endpoints de health checks (live/ready) para web/hosts. Finalizar com cenário E2E validando traces, métricas e logs."
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Montar suíte de testes de integração e orquestração Docker/CI",
         "description": "Preparar docker-compose, Testcontainers e pipelines GitHub Actions garantindo validação automatizada.",
         "details": "Crie `docker-compose.yml` com serviços Postgres, RabbitMQ, OpenSearch, Jaeger/Prometheus e perfis para local/CI (healthchecks, recursos). Configure `Tests/Integration` usando `DotNet.Testcontainers` para subir Rabbit/Postgres dinamicamente, executando cenários: publicação→processamento→persistência, Outbox dispatcher, Inbox dedupe. Na CI (GitHub Actions), configure jobs: `build`, `unit-tests`, `integration-tests` (usa compose) e `docker-build` para cada serviço com multi-stage (AOT quando viável). Pseudo workflow:\n```\n- uses: actions/setup-dotnet@v4\n- run: dotnet test --filter Category=Integration\n- run: docker compose -f infra/compose.yml up -d\n```\nInclua `.devcontainer` com extensões recomendadas e scripts de bootstrap.",
@@ -614,7 +692,8 @@
             "dependencies": [],
             "details": "Criar `infra/docker-compose.yml` contendo Postgres, RabbitMQ, OpenSearch, Jaeger, Prometheus/Grafana e qualquer sidecar necessário. Configurar redes, volumes, variáveis e limites de recursos distintos para perfis `local` e `ci`, healthchecks (`pg_isready`, `rabbitmq-diagnostics`, endpoints `/health`), dependências com `condition: service_healthy` e secrets externos quando disponível. Documentar variáveis consumidas via `.env` e fornecer make/scripts para `docker compose --profile <alvo> up` que limpem volumes no modo CI.",
             "status": "pending",
-            "testStrategy": "Executar `docker compose --profile local up -d` e `--profile ci up -d` para validar que todos os serviços atingem estado healthy; usar `docker compose ps` e `docker inspect` nos healthchecks."
+            "testStrategy": "Executar `docker compose --profile local up -d` e `--profile ci up -d` para validar que todos os serviços atingem estado healthy; usar `docker compose ps` e `docker inspect` nos healthchecks.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -625,7 +704,8 @@
             ],
             "details": "Adicionar um novo projeto (ex.: `Tests/Integration/MyLittleBank.Tests.Integration.csproj`) referenciando os assemblies de domínio/infra. Instalar `DotNet.Testcontainers` e utilitários necessários. Implementar fixtures que sobem contêineres de Postgres e Rabbit via `TestcontainersBuilder`, expõem connection strings via `IAsyncLifetime`, aplicam migrações e limpam recursos entre testes. Criar categoria/trait `Category=Integration` para filtro nas execuções locais e em CI, incluindo base class `IntegrationTestBase` com helpers para publish/consume.",
             "status": "pending",
-            "testStrategy": "Rodar `dotnet test Tests/Integration --filter Category=Integration` localmente para garantir que os contêineres sobem e derrubam corretamente e que migrations rodam antes dos testes."
+            "testStrategy": "Rodar `dotnet test Tests/Integration --filter Category=Integration` localmente para garantir que os contêineres sobem e derrubam corretamente e que migrations rodam antes dos testes.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -636,7 +716,8 @@
             ],
             "details": "Dentro do projeto de integração, criar suites específicas: (a) pipeline publicação→processamento→persistência acionando `Mock.Transactions`/publisher real e validando saldos no Postgres; (b) cenário de `OutboxDispatcher` interrompido, reiniciado e retomando mensagens via `FOR UPDATE SKIP LOCKED`; (c) cenário de `Inbox` garantindo dedupe quando a mesma mensagem chega duas vezes. Usar Testcontainers para levantar somente Postgres/Rabbit necessários e stubs mínimos para OpenSearch/telemetria, persistindo snapshots/fixtures para asserts determinísticos.",
             "status": "pending",
-            "testStrategy": "Executar `dotnet test --filter Category=Integration` e inspecionar logs gerados para confirmar que os cenários cobrem falha/reprocessamento e que asserções de banco/fila passam."
+            "testStrategy": "Executar `dotnet test --filter Category=Integration` e inspecionar logs gerados para confirmar que os cenários cobrem falha/reprocessamento e que asserções de banco/fila passam.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -649,7 +730,8 @@
             ],
             "details": "Adicionar `.github/workflows/ci.yml` contendo: job `build` para `dotnet restore/build`; job `unit-tests` dependente que roda `dotnet test` filtrando categorias padrão; job `integration-tests` que prepara Docker (`docker/setup-buildx-action`), sobe `docker compose -f infra/docker-compose.yml --profile ci up -d`, executa `dotnet test --filter Category=Integration` e publica relatórios `.trx/junit`; job `docker-build` executando matriz por serviço (`Mock.Transactions`, consumidores, dispatcher) usando Dockerfiles multi-stage com publish AOT quando possível e push condicional. Compartilhar caches (`actions/cache`) e artefatos para logs/testes.",
             "status": "pending",
-            "testStrategy": "Utilizar `act pull_request` ou rodar manualmente `gh workflow run ci.yml` para validar que cada job executa e que o profile CI da Compose responde antes dos testes; revisar artefatos de testes publicados."
+            "testStrategy": "Utilizar `act pull_request` ou rodar manualmente `gh workflow run ci.yml` para validar que cada job executa e que o profile CI da Compose responde antes dos testes; revisar artefatos de testes publicados.",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -661,15 +743,23 @@
             ],
             "details": "Criar `.devcontainer/devcontainer.json` e Dockerfile baseando-se na imagem oficial .NET SDK + Docker CLI. Configurar `postCreateCommand` para `dotnet restore`, `dotnet tool restore` e opcionalmente `./infra/scripts/bootstrap-compose.sh`. Incluir extensões recomendadas (C#, YAML, Docker, Thunder Client) e configurações como forwarding de portas para Rabbit/Postgres/Jaeger. Fornecer scripts `infra/scripts/bootstrap-compose.sh` e `infra/scripts/run-integration-tests.sh` referenciados pelo devcontainer para subir perfis corretos e executar `dotnet test --filter Category=Integration`, garantindo que novos devs obtenham ambiente consistente.",
             "status": "pending",
-            "testStrategy": "Abrir o repositório via \"Dev Containers: Reopen in Container\", verificar se o `postCreateCommand` conclui, rodar `./infra/scripts/run-integration-tests.sh` dentro do container e confirmar que Compose/testes finalizam sem erros."
+            "testStrategy": "Abrir o repositório via \"Dev Containers: Reopen in Container\", verificar se o `postCreateCommand` conclui, rodar `./infra/scripts/run-integration-tests.sh` dentro do container e confirmar que Compose/testes finalizam sem erros.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Criar `infra/docker-compose.yml` com Postgres, RabbitMQ, OpenSearch, Jaeger/Prometheus (nenhum arquivo existe hoje) e perfis local/CI. Adicionar projeto `Tests/Integration` usando DotNet.Testcontainers, implementando fixtures e cenários publicação→processamento→persistência/Outbox/Inbox. Configurar workflow `.github/workflows/ci.yml` com jobs build/unit/integration/docker-build e scripts auxiliares/devcontainer para padronizar ambiente. Validar compose/provisionamento e dotnet test no pipeline/local."
       }
     ],
     "metadata": {
-      "created": "2025-12-02T22:35:19.349Z",
-      "updated": "2025-12-02T22:35:19.349Z",
-      "description": "Tasks for master context"
+      "version": "1.0.0",
+      "lastModified": "2025-12-03T00:26:14.968Z",
+      "taskCount": 10,
+      "completedCount": 1,
+      "tags": [
+        "master"
+      ]
     }
   }
 }
