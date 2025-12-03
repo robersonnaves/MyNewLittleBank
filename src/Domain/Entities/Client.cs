@@ -1,8 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Domain.Entities;
 
 public sealed class Client
 {
-    private readonly List<BankAccount> _accounts = new();
+    private readonly List<BankAccount> _bankAccounts = new();
 
     private Client(ClientId id, Cpf cpf, string name, string email, string mobileNumber)
     {
@@ -18,7 +20,9 @@ public sealed class Client
     public string Name { get; private set; }
     public string Email { get; private set; }
     public string MobileNumber { get; private set; }
-    public IReadOnlyCollection<BankAccount> BankAccounts => _accounts.AsReadOnly();
+    public IReadOnlyCollection<BankAccount> BankAccounts => _bankAccounts.AsReadOnly();
+
+    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "EF Core concurrency token requires byte[] for row version.")]
     public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
     public static Result<Client> Create(ClientId id, Cpf cpf, string name, string email, string mobileNumber)
@@ -64,7 +68,7 @@ public sealed class Client
             return Result<Client>.Failure(DomainException.InvalidTransaction("Conta não pertence ao cliente.").Code);
         }
 
-        _accounts.Add(account);
+        _bankAccounts.Add(account);
         return Result<Client>.Success(this);
     }
 }

@@ -17,9 +17,13 @@ public sealed class MyNewLittleBankContext : DbContext
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<Entities.OutboxMessage> OutboxMessages => Set<Entities.OutboxMessage>();
+    public DbSet<Entities.InboxMessage> InboxMessages => Set<Entities.InboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        ArgumentNullException.ThrowIfNull(modelBuilder);
+
         var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
             value => value,
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));

@@ -3,7 +3,7 @@ namespace Domain.Tests;
 public class ValueObjectsTests
 {
     [Fact]
-    public void Cpf_ShouldFail_WhenChecksumInvalid()
+    public void CpfShouldFailWhenChecksumInvalid()
     {
         var result = Cpf.TryCreate("12345678900");
 
@@ -12,7 +12,7 @@ public class ValueObjectsTests
     }
 
     [Fact]
-    public void Cpf_ShouldSucceed_ForValidCpf()
+    public void CpfShouldSucceedForValidCpf()
     {
         var result = Cpf.TryCreate("52998224725");
 
@@ -21,7 +21,7 @@ public class ValueObjectsTests
     }
 
     [Fact]
-    public void Money_ShouldFail_WhenNegative()
+    public void MoneyShouldFailWhenNegative()
     {
         var result = Money.TryCreate(-1m);
 
@@ -30,10 +30,16 @@ public class ValueObjectsTests
     }
 
     [Fact]
-    public void Money_ShouldSupportArithmetic()
+    public void MoneyShouldSupportArithmetic()
     {
-        var left = Money.TryCreate(10m).Value;
-        var right = Money.TryCreate(2.5m).Value;
+        var leftResult = Money.TryCreate(10m);
+        var rightResult = Money.TryCreate(2.5m);
+
+        leftResult.IsSuccess.Should().BeTrue();
+        rightResult.IsSuccess.Should().BeTrue();
+
+        var left = leftResult.Value!;
+        var right = rightResult.Value!;
 
         (left + right).Value.Should().Be(12.5m);
         (left - right).Value.Should().Be(7.5m);

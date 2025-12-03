@@ -1,3 +1,4 @@
+using System;
 using Domain.Interfaces;
 using Infra.Database.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Infra.Database;
 
-public static class DependencyInjection
+public static class DatabaseServiceCollectionExtensions
 {
     public static IServiceCollection AddDatabaseInfrastructure(
         this IServiceCollection services,
@@ -32,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped(typeof(IReadRepository<>), typeof(EfRepository<>));
         services.AddScoped(typeof(IWriteRepository<>), typeof(EfRepository<>));
         services.AddScoped(typeof(ISpecificationRepository<>), typeof(EfRepository<>));
+        services.AddScoped<Func<MyNewLittleBankContext>>(provider => () => provider.GetRequiredService<MyNewLittleBankContext>());
+        services.AddScoped<InboxMessageStore>();
 
         return services;
     }

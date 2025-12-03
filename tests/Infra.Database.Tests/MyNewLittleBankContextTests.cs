@@ -5,10 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infra.Database.Tests;
 
+#pragma warning disable CA2007 // ConfigureAwait not required in test context
 public sealed class MyNewLittleBankContextTests
 {
     [Fact]
-    public async Task SaveChangesAsync_PersistsEntitiesWithDiscriminator()
+    public async Task SaveChangesAsyncPersistsEntitiesWithDiscriminator()
     {
         var options = new DbContextOptionsBuilder<MyNewLittleBankContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -17,28 +18,51 @@ public sealed class MyNewLittleBankContextTests
         await using var context = new MyNewLittleBankContext(options);
         await using var unitOfWork = new UnitOfWork(context);
 
-        var clientId = ClientId.TryCreate(Guid.NewGuid()).Value;
-        var cpf = Cpf.TryCreate("52998224725").Value;
-        var accountNumber = AccountNumber.TryCreate("12345678901").Value;
-        var transactionId = TransactionId.New().Value;
-        var initialBalance = Money.TryCreate(1_000m).Value;
-        var amount = Money.TryCreate(150m).Value;
+        var clientIdResult = ClientId.TryCreate(Guid.NewGuid());
+        clientIdResult.IsSuccess.Should().BeTrue();
+        var clientId = clientIdResult.Value!;
 
-        var client = Client.Create(clientId, cpf, "Client Name", "client@email.com", "11999999999").Value;
-        var account = BankAccount.Open(clientId, accountNumber, initialBalance).Value;
-        var transaction = PixTransaction.Create(
+        var cpfResult = Cpf.TryCreate("52998224725");
+        cpfResult.IsSuccess.Should().BeTrue();
+        var cpf = cpfResult.Value!;
+
+        var accountNumberResult = AccountNumber.TryCreate("12345678901");
+        accountNumberResult.IsSuccess.Should().BeTrue();
+        var accountNumber = accountNumberResult.Value!;
+
+        var transactionId = TransactionId.New().Value!;
+
+        var initialBalanceResult = Money.TryCreate(1_000m);
+        initialBalanceResult.IsSuccess.Should().BeTrue();
+        var initialBalance = initialBalanceResult.Value!;
+
+        var amountResult = Money.TryCreate(150m);
+        amountResult.IsSuccess.Should().BeTrue();
+        var amount = amountResult.Value!;
+
+        var clientResult = Client.Create(clientId, cpf, "Client Name", "client@email.com", "11999999999");
+        clientResult.IsSuccess.Should().BeTrue();
+        var client = clientResult.Value!;
+
+        var accountResult = BankAccount.Open(clientId, accountNumber, initialBalance);
+        accountResult.IsSuccess.Should().BeTrue();
+        var account = accountResult.Value!;
+
+        var transactionResult = PixTransaction.Create(
             transactionId,
             clientId,
             accountNumber,
             amount,
             "origin@pix",
-            "destination@pix").Value;
+            "destination@pix");
+        transactionResult.IsSuccess.Should().BeTrue();
+        var transaction = transactionResult.Value!;
 
-        client.AddAccount(account);
+        client.AddAccount(account).IsSuccess.Should().BeTrue();
 
-        await context.Clients.AddAsync(client);
-        await context.BankAccounts.AddAsync(account);
-        await context.Transactions.AddAsync(transaction);
+        await context.Clients.AddAsync(client, CancellationToken.None);
+        await context.BankAccounts.AddAsync(account, CancellationToken.None);
+        await context.Transactions.AddAsync(transaction, CancellationToken.None);
 
         await unitOfWork.SaveChangesAsync();
 
@@ -49,7 +73,7 @@ public sealed class MyNewLittleBankContextTests
     }
 
     [Fact]
-    public void Model_ShouldExposeDiscriminatorAndConcurrencyTokens()
+    public void ModelShouldExposeDiscriminatorAndConcurrencyTokens()
     {
         var options = new DbContextOptionsBuilder<MyNewLittleBankContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -66,7 +90,7 @@ public sealed class MyNewLittleBankContextTests
     }
 
     [Fact]
-    public async Task Repository_ShouldApplySpecifications()
+    public async Task RepositoryShouldApplySpecifications()
     {
         var options = new DbContextOptionsBuilder<MyNewLittleBankContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -76,14 +100,28 @@ public sealed class MyNewLittleBankContextTests
         var repository = new EfRepository<BankAccount>(context);
         await using var unitOfWork = new UnitOfWork(context);
 
-        var clientId = ClientId.TryCreate(Guid.NewGuid()).Value;
-        var firstAccount = BankAccount.Open(clientId, AccountNumber.TryCreate("12345678902").Value, Money.TryCreate(200m).Value).Value;
-        var secondAccount = BankAccount.Open(clientId, AccountNumber.TryCreate("12345678903").Value, Money.TryCreate(50m).Value).Value;
+        var clientIdResult = ClientId.TryCreate(Guid.NewGuid());
+        clientIdResult.IsSuccess.Should().BeTrue();
+        var clientId = clientIdResult.Value!;
 
-        await repository.AddRangeAsync(new[] { firstAccount, secondAccount });
+        var firstAccountResult = BankAccount.Open(
+            clientId,
+            AccountNumber.TryCreate("12345678902").Value!,
+            Money.TryCreate(200m).Value!);
+        firstAccountResult.IsSuccess.Should().BeTrue();
+        var firstAccount = firstAccountResult.Value!;
+
+        var secondAccountResult = BankAccount.Open(
+            clientId,
+            AccountNumber.TryCreate("12345678903").Value!,
+            Money.TryCreate(50m).Value!);
+        secondAccountResult.IsSuccess.Should().BeTrue();
+        var secondAccount = secondAccountResult.Value!;
+
+        await repository.AddRangeAsync(new[] { firstAccount, secondAccount }, CancellationToken.None);
         await unitOfWork.SaveChangesAsync();
 
-        var richAccounts = await repository.ListAsync(new BalanceAboveSpecification(100m));
+        var richAccounts = await repository.ListAsync(new BalanceAboveSpecification(100m), CancellationToken.None);
 
         richAccounts.Should().HaveCount(1);
         richAccounts.Single().AccountNumber.Value.Should().Be("12345678902");

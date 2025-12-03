@@ -1,6 +1,6 @@
 namespace Domain.Interfaces;
 
-public interface IWriteRepository<TEntity>
+public interface IWriteRepository<in TEntity>
     where TEntity : class
 {
     Task AddAsync(TEntity entity, CancellationToken cancellationToken = default);

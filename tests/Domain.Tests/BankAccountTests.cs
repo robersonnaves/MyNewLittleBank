@@ -8,27 +8,52 @@ namespace Domain.Tests;
 public class BankAccountTests
 {
     [Fact]
-    public void Debit_ShouldThrow_WhenBalanceInsufficient()
+    public void DebitShouldThrowWhenBalanceInsufficient()
     {
-        var clientId = ClientId.TryCreate(Guid.NewGuid()).Value;
-        var accountNumber = AccountNumber.TryCreate("123450").Value;
-        var initialBalance = Money.TryCreate(100m).Value;
-        var account = BankAccount.Open(clientId, accountNumber, initialBalance).Value;
+        var clientIdResult = ClientId.TryCreate(Guid.NewGuid());
+        clientIdResult.IsSuccess.Should().BeTrue();
+        var clientId = clientIdResult.Value!;
 
-        var action = () => account.Debit(Money.TryCreate(150m).Value, TransactionId.New().Value);
+        var accountNumberResult = AccountNumber.TryCreate("123450");
+        accountNumberResult.IsSuccess.Should().BeTrue();
+        var accountNumber = accountNumberResult.Value!;
+
+        var initialBalanceResult = Money.TryCreate(100m);
+        initialBalanceResult.IsSuccess.Should().BeTrue();
+        var initialBalance = initialBalanceResult.Value!;
+
+        var accountResult = BankAccount.Open(clientId, accountNumber, initialBalance);
+        accountResult.IsSuccess.Should().BeTrue();
+        var account = accountResult.Value!;
+
+        var amountResult = Money.TryCreate(150m);
+        amountResult.IsSuccess.Should().BeTrue();
+
+        var action = () => account.Debit(amountResult.Value!, TransactionId.New().Value!);
 
         action.Should().Throw<DomainException>()
             .Where(ex => ex.Code == "insufficient_funds");
     }
 
     [Fact]
-    public void Credit_ShouldIncreaseBalance()
+    public void CreditShouldIncreaseBalance()
     {
-        var clientId = ClientId.TryCreate(Guid.NewGuid()).Value;
-        var accountNumber = AccountNumber.TryCreate("999991").Value;
-        var account = BankAccount.Open(clientId, accountNumber, Money.Zero).Value;
+        var clientIdResult = ClientId.TryCreate(Guid.NewGuid());
+        clientIdResult.IsSuccess.Should().BeTrue();
+        var clientId = clientIdResult.Value!;
 
-        var result = account.Credit(Money.TryCreate(50m).Value, TransactionId.New().Value);
+        var accountNumberResult = AccountNumber.TryCreate("999991");
+        accountNumberResult.IsSuccess.Should().BeTrue();
+        var accountNumber = accountNumberResult.Value!;
+
+        var accountResult = BankAccount.Open(clientId, accountNumber, Money.Zero);
+        accountResult.IsSuccess.Should().BeTrue();
+        var account = accountResult.Value!;
+
+        var creditAmountResult = Money.TryCreate(50m);
+        creditAmountResult.IsSuccess.Should().BeTrue();
+
+        var result = account.Credit(creditAmountResult.Value!, TransactionId.New().Value!);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Value.Should().Be(50m);

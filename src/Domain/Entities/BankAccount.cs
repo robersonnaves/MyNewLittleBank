@@ -1,4 +1,6 @@
-﻿namespace Domain.Entities;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Domain.Entities;
 
 public sealed class BankAccount
 {
@@ -19,6 +21,8 @@ public sealed class BankAccount
     public Money Balance { get; private set; }
     public DateTime OpenedAt { get; }
     public IReadOnlyCollection<TransactionId> Transactions => _transactions.AsReadOnly();
+
+    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "EF Core concurrency token requires byte[] for row version.")]
     public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
     public static Result<BankAccount> Open(ClientId clientId, AccountNumber accountNumber, Money initialBalance)

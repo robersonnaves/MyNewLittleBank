@@ -10,25 +10,24 @@ public sealed class EfRepository<TEntity> :
     ISpecificationRepository<TEntity>
     where TEntity : class
 {
-    private readonly MyNewLittleBankContext _context;
     private readonly DbSet<TEntity> _set;
 
     public EfRepository(MyNewLittleBankContext context)
     {
-        _context = context;
+        ArgumentNullException.ThrowIfNull(context);
         _set = context.Set<TEntity>();
     }
 
     public async Task AddAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entity);
-        await _set.AddAsync(entity, cancellationToken);
+        await _set.AddAsync(entity, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task AddRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entities);
-        await _set.AddRangeAsync(entities, cancellationToken);
+        await _set.AddRangeAsync(entities, cancellationToken).ConfigureAwait(false);
     }
 
     public void Update(TEntity entity)
@@ -43,14 +42,14 @@ public sealed class EfRepository<TEntity> :
         _set.Remove(entity);
     }
 
-    public Task<TEntity?> GetByIdAsync(object[] keyValues, CancellationToken cancellationToken = default) =>
-        _set.FindAsync(keyValues, cancellationToken).AsTask();
+    public async Task<TEntity?> GetByIdAsync(object[] keyValues, CancellationToken cancellationToken = default) =>
+        await _set.FindAsync(keyValues, cancellationToken).AsTask().ConfigureAwait(false);
 
     public async Task<IReadOnlyList<TEntity>> ListAsync(CancellationToken cancellationToken = default) =>
-        (await _set.AsNoTracking().ToListAsync(cancellationToken)).AsReadOnly();
+        (await _set.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false)).AsReadOnly();
 
     public async Task<IReadOnlyList<TEntity>> ListAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) =>
-        (await _set.AsNoTracking().Where(predicate).ToListAsync(cancellationToken)).AsReadOnly();
+        (await _set.AsNoTracking().Where(predicate).ToListAsync(cancellationToken).ConfigureAwait(false)).AsReadOnly();
 
     public Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) =>
         _set.AsNoTracking().AnyAsync(predicate, cancellationToken);
@@ -59,7 +58,7 @@ public sealed class EfRepository<TEntity> :
         ApplySpecification(specification).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<TEntity>> ListAsync(ISpecification<TEntity> specification, CancellationToken cancellationToken = default) =>
-        (await ApplySpecification(specification).ToListAsync(cancellationToken)).AsReadOnly();
+        (await ApplySpecification(specification).ToListAsync(cancellationToken).ConfigureAwait(false)).AsReadOnly();
 
     public Task<int> CountAsync(ISpecification<TEntity> specification, CancellationToken cancellationToken = default) =>
         ApplySpecification(specification).CountAsync(cancellationToken);
