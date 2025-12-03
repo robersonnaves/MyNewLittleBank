@@ -2,21 +2,48 @@
 
 public sealed class PixTransaction : Transaction
 {
-    public string OriginPixKey { get; set; } = string.Empty;
-
-    public string DestinationPixKey { get; set; } = string.Empty;
-
-    public PixTransaction() { }
-
-    public PixTransaction Create(Guid id, string originPixKey, string destinationPixKey, BankAccount bankAccount, MovementType movementType, int amount)
+    private PixTransaction(
+        TransactionId id,
+        ClientId clientId,
+        AccountNumber bankAccountId,
+        Money amount,
+        string originPixKey,
+        string destinationPixKey,
+        TransactionStatus status,
+        DateTime occurredOn) : base(id, clientId, bankAccountId, amount, status, occurredOn)
     {
-        Id = id;
         OriginPixKey = originPixKey;
         DestinationPixKey = destinationPixKey;
-        SetBankAccount(bankAccount);
-        SetMovementType(movementType);
-        SetAmount(amount);
-        SetCreatedAt(DateTime.Now);
-        return this;
+    }
+
+    public string OriginPixKey { get; }
+    public string DestinationPixKey { get; }
+
+    public override TransactionType Type => TransactionType.Pix;
+
+    public static Result<PixTransaction> Create(
+        TransactionId id,
+        ClientId clientId,
+        AccountNumber bankAccountId,
+        Money amount,
+        string originPixKey,
+        string destinationPixKey,
+        TransactionStatus status = TransactionStatus.Pending,
+        DateTime? occurredOn = null)
+    {
+        if (string.IsNullOrWhiteSpace(originPixKey) || string.IsNullOrWhiteSpace(destinationPixKey))
+        {
+            return Result<PixTransaction>.Failure("pix_keys_invalid");
+        }
+
+        return Result<PixTransaction>.Success(new PixTransaction(
+            id,
+            clientId,
+            bankAccountId,
+            amount,
+            originPixKey.Trim(),
+            destinationPixKey.Trim(),
+            status,
+            occurredOn ?? DateTime.UtcNow));
     }
 }

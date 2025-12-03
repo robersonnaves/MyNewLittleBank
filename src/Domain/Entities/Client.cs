@@ -1,30 +1,69 @@
 namespace Domain.Entities;
 
-public class Client : PersistenceBaseClass
+public sealed class Client
 {
-    public string Name { get; private set; } = string.Empty;
-    public string Email { get; private set; } = string.Empty;
-    public string MobileNumber { get; private set; } = string.Empty;
-    public ICollection<BankAccount> BankAccounts { get; } = new List<BankAccount>();
+    private readonly List<BankAccount> _accounts = new();
 
-    public Client() { }
-
-    public Client Create(string name, string email, string phone)
+    private Client(ClientId id, Cpf cpf, string name, string email, string mobileNumber)
     {
-        Id = Guid.NewGuid();
+        Id = id;
+        Cpf = cpf;
         Name = name;
         Email = email;
-        MobileNumber = phone;
-
-        return this;
+        MobileNumber = mobileNumber;
     }
 
-    public Client Update(string name, string email, string phone)
-    {
-        Name = name;
-        Email = email;
-        MobileNumber = phone;
+    public ClientId Id { get; }
+    public Cpf Cpf { get; }
+    public string Name { get; private set; }
+    public string Email { get; private set; }
+    public string MobileNumber { get; private set; }
+    public IReadOnlyCollection<BankAccount> BankAccounts => _accounts.AsReadOnly();
 
-        return this;
+    public static Result<Client> Create(ClientId id, Cpf cpf, string name, string email, string mobileNumber)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Result<Client>.Failure("client_name_empty");
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Result<Client>.Failure("client_email_empty");
+        }
+
+        if (string.IsNullOrWhiteSpace(mobileNumber))
+        {
+            return Result<Client>.Failure("client_mobile_empty");
+        }
+
+        return Result<Client>.Success(new Client(id, cpf, name.Trim(), email.Trim(), mobileNumber.Trim()));
+    }
+
+    public Result<Client> Update(string name, string email, string mobileNumber)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(mobileNumber))
+        {
+            return Result<Client>.Failure("client_update_invalid");
+        }
+
+        Name = name.Trim();
+        Email = email.Trim();
+        MobileNumber = mobileNumber.Trim();
+
+        return Result<Client>.Success(this);
+    }
+
+    public Result<Client> AddAccount(BankAccount account)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+
+        if (account.ClientId != Id)
+        {
+            return Result<Client>.Failure(DomainException.InvalidTransaction("Conta não pertence ao cliente.").Code);
+        }
+
+        _accounts.Add(account);
+        return Result<Client>.Success(this);
     }
 }

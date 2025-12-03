@@ -1,61 +1,40 @@
-﻿using Domain.Interfaces;
+﻿namespace Domain.Entities;
 
-namespace Domain.Entities;
-
-public abstract class Transaction : PersistenceBaseClass, ITransaction
+public abstract class Transaction
 {
-    public virtual Client? Client { get; private set; }
-    public virtual Guid ClientId { get; private set; }
-    public virtual BankAccount? BankAccount { get; private set; }
-    public virtual Guid BankAccountId { get; private set; }
-    public virtual MovementType MovementType { get; private set; }
-    public virtual int Amount { get; private set; }
-    public virtual bool IsCanceled { get; private set; }
-    public virtual DateTime? CanceledAt { get; private set; }
-
-    protected Transaction() { }
-
-    public void SetClient(Client client)
+    protected Transaction(TransactionId id, ClientId clientId, AccountNumber bankAccountId, Money amount, TransactionStatus status, DateTime occurredOn)
     {
-        ArgumentNullException.ThrowIfNull(client);
-
-        Client = client;
-        ClientId = client.Id;
+        Id = id;
+        ClientId = clientId;
+        BankAccountId = bankAccountId;
+        Amount = amount;
+        Status = status;
+        OccurredOn = occurredOn;
     }
 
-    public void SetBankAccount(BankAccount bankAccount)
-    {
-        ArgumentNullException.ThrowIfNull(bankAccount);
+    public TransactionId Id { get; }
+    public ClientId ClientId { get; }
+    public AccountNumber BankAccountId { get; }
+    public Money Amount { get; private set; }
+    public TransactionStatus Status { get; private set; }
+    public DateTime OccurredOn { get; private set; }
 
-        BankAccount = bankAccount;
-        BankAccountId = bankAccount.Id;
+    public Transaction ChangeStatus(TransactionStatus status)
+    {
+        Status = status;
+        return this;
     }
 
-    public void SetCreatedAt(DateTime createdAt)
+    public Transaction SetOccurredOn(DateTime occurredOn)
     {
-        CreatedAt = createdAt;
-    }    
+        OccurredOn = occurredOn;
+        return this;
+    }
 
-    public void SetAmount(int amount)
+    protected void SetAmount(Money amount)
     {
         Amount = amount;
     }
 
-    public void SetMovementType(MovementType movementType)
-    {
-        MovementType = movementType;
-    }
-
-    public Transaction Cancel()
-    {
-        IsCanceled = true;
-        CanceledAt = DateTime.UtcNow;
-
-        return this;
-    }
-
-    public decimal GetDecimalAmount()
-    {
-        return Amount / 100m;
-    }
+    public abstract TransactionType Type { get; }
 }

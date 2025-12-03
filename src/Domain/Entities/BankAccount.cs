@@ -1,73 +1,79 @@
 ﻿namespace Domain.Entities;
 
-public sealed class BankAccount : PersistenceBaseClass
+public sealed class BankAccount
 {
-    public Client? Client { get; init; }
-    public Guid ClientId { get; init; }
-    public string BankBranchCode { get; init; } = string.Empty;
-    public string AccountNumber { get; init; } = string.Empty;
-    public string PixKey { get; init; } = string.Empty;
-    public long Balance { get; private set; }
+    private readonly List<TransactionId> _transactions = new();
 
-    public BankAccount() { }
-
-    public static BankAccount Create(Client client, string bankBranchCode, string accountNumber, string pixKey, long initialBalance)
+    private BankAccount(Guid id, ClientId clientId, AccountNumber accountNumber, Money balance)
     {
-        if (initialBalance <= 0)
+        Id = id;
+        ClientId = clientId;
+        AccountNumber = accountNumber;
+        Balance = balance;
+        OpenedAt = DateTime.UtcNow;
+    }
+
+    public Guid Id { get; }
+    public ClientId ClientId { get; }
+    public AccountNumber AccountNumber { get; }
+    public Money Balance { get; private set; }
+    public DateTime OpenedAt { get; }
+    public IReadOnlyCollection<TransactionId> Transactions => _transactions.AsReadOnly();
+
+    public static Result<BankAccount> Open(ClientId clientId, AccountNumber accountNumber, Money initialBalance)
+    {
+        if (initialBalance < Money.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(initialBalance), "O saldo inicial deve ser positivo.");
+            return Result<BankAccount>.Failure(DomainException.InvalidMoney("Saldo inicial não pode ser negativo.").Code);
         }
 
-        return new BankAccount
-        {
-            Id = Guid.NewGuid(),
-            Client = client,
-            BankBranchCode = bankBranchCode,
-            AccountNumber = accountNumber,
-            PixKey = pixKey,
-            Balance = initialBalance
-        };
+        return Result<BankAccount>.Success(new BankAccount(Guid.NewGuid(), clientId, accountNumber, initialBalance));
     }
 
-    public static BankAccount Create(Guid clientId, string bankBranchCode, string accountNumber, string pixKey, long initialBalance)
+    public Result<Money> Credit(Money amount, TransactionId? transactionId = null)
     {
-        if (initialBalance <= 0)
+        if (amount <= Money.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(initialBalance), "O saldo inicial deve ser positivo.");
+            return Result<Money>.Failure(DomainException.InvalidMoney("Valor de crédito deve ser positivo.").Code);
         }
 
-        return new BankAccount
-        {
-            Id = Guid.NewGuid(),
-            ClientId = clientId,
-            BankBranchCode = bankBranchCode,
-            AccountNumber = accountNumber,
-            PixKey = pixKey,
-            Balance = initialBalance
-        };
-    }
-
-    public static BankAccount Create(Guid clientId, string bankBranchCode, string accountNumber, string pixKey)
-    {
-        return new BankAccount
-        {
-            Id = Guid.NewGuid(),
-            ClientId = clientId,
-            BankBranchCode = bankBranchCode,
-            AccountNumber = accountNumber,
-            PixKey = pixKey
-        };
-    }
-
-    public long MakeDeposit(long amount)
-    {
         Balance += amount;
-        return Balance;
+
+        if (transactionId.HasValue)
+        {
+            RegisterTransaction(transactionId.Value);
+        }
+
+        return Result<Money>.Success(Balance);
     }
 
-    public long MakeWithdrawal(long amount)
+    public Result<Money> Debit(Money amount, TransactionId? transactionId = null)
     {
+        if (amount <= Money.Zero)
+        {
+            return Result<Money>.Failure(DomainException.InvalidMoney("Valor de débito deve ser positivo.").Code);
+        }
+
+        if (amount > Balance)
+        {
+            throw DomainException.InsufficientFunds(Balance.Value, amount.Value);
+        }
+
         Balance -= amount;
-        return Balance;
+
+        if (transactionId.HasValue)
+        {
+            RegisterTransaction(transactionId.Value);
+        }
+
+        return Result<Money>.Success(Balance);
+    }
+
+    private void RegisterTransaction(TransactionId transactionId)
+    {
+        if (!_transactions.Contains(transactionId))
+        {
+            _transactions.Add(transactionId);
+        }
     }
 }

@@ -2,15 +2,37 @@
 
 public sealed class MoneyTransaction : Transaction
 {
-    public MoneyTransaction() { }
-
-    public MoneyTransaction Create(Guid id, BankAccount bankAccount, MovementType movementType, int amount)
+    private MoneyTransaction(
+        TransactionId id,
+        ClientId clientId,
+        AccountNumber bankAccountId,
+        Money amount,
+        TransactionStatus status,
+        DateTime occurredOn) : base(id, clientId, bankAccountId, amount, status, occurredOn)
     {
-        Id = id;
-        SetBankAccount(bankAccount);
-        SetAmount(amount);
-        SetMovementType(movementType);
-        SetCreatedAt(DateTime.Now);
-        return this;
+    }
+
+    public override TransactionType Type => TransactionType.Money;
+
+    public static Result<MoneyTransaction> Create(
+        TransactionId id,
+        ClientId clientId,
+        AccountNumber bankAccountId,
+        Money amount,
+        TransactionStatus status = TransactionStatus.Pending,
+        DateTime? occurredOn = null)
+    {
+        if (amount < Money.Zero)
+        {
+            return Result<MoneyTransaction>.Failure("amount_negative");
+        }
+
+        return Result<MoneyTransaction>.Success(new MoneyTransaction(
+            id,
+            clientId,
+            bankAccountId,
+            amount,
+            status,
+            occurredOn ?? DateTime.UtcNow));
     }
 }
