@@ -35,7 +35,11 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 - OpenTelemetry (OTLP)
 - Serilog (logs estruturados)
 
-**Restrições Tecnológicas**: **NÃO usar** AutoMapper, FluentAssertions ou MassTransit
+**Restrições Tecnológicas**: **NÃO utilizar os pacotes MediatR, AutoMapper, FluentAssertions ou MassTransit**.
+ - No lugar do MediatR, usar LiteBus (versão 4.2.0) (https://github.com/litenova/LiteBus) com o exemplo de implementação (https://dev.to/litenova/litebus-a-free-alternative-to-mediatr-for-net-applications-1mdp).
+ - No lugar do AutoMapper, usar a solução nativa, Implicit/Explicit Operators.
+ - Nos testes, no lugar do FluentAssertions, usar AwesomeAssertions (versão 9.3.0) (https://github.com/AwesomeAssertions/AwesomeAssertions).
+
 
 ## Camada Domain
 

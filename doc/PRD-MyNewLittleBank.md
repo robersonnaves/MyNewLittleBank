@@ -1,4 +1,4 @@
-# PRD: Reescrita do Projeto MyLittleBank
+# PRD: Reescrita do Projeto MyLittleBank, agora MyNewLittleBank
 
 **Autor:** Gemini  
 **Versão:** 2.0  
@@ -138,10 +138,6 @@ A reescrita deve manter a stack tecnológica principal, atualizando para as vers
 - **Mensageria:** RabbitMQ
 - **ORM:** Entity Framework Core
 - **Observabilidade:** OpenTelemetry, com um backend como Jaeger/Prometheus/Grafana ou similar
-
-### 7.2. Restrições Tecnológicas
-
-Todas as mudanças mantêm as restrições: **sem AutoMapper, FluentAssertions ou MassTransit**.
 
 ---
 
