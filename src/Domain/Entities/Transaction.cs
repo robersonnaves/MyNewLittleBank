@@ -18,6 +18,7 @@ public abstract class Transaction
     public Money Amount { get; private set; }
     public TransactionStatus Status { get; private set; }
     public DateTime OccurredOn { get; private set; }
+    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
     public Transaction ChangeStatus(TransactionStatus status)
     {

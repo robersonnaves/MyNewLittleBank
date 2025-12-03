@@ -2,11 +2,11 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
-        "title": "Atualizar solução para .NET 10 e propriedades compartilhadas",
-        "description": "Migrar toda a solution para alvo net10.0, habilitando recursos de linguagem exigidos e alinhando pacotes às versões compatíveis.",
-        "details": "Atualize `Directory.Build.props` para `<TargetFramework>net10.0</TargetFramework>`, habilite `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e defina `<AnalysisLevel>latest-all</AnalysisLevel>`. Centralize versões de pacotes (EntityFramework Core 10.0.0, RabbitMQ.Client ≥7.2.0, OpenTelemetry 1.14.0, Serilog 4.3.0). Execute `dotnet list package --outdated` e ajuste referências até o build ficar limpo. Pseudo:\n```\n<Project>\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n```\nGaranta que `dotnet build` e `dotnet test` rodem sem warnings críticos e atualize pipelines/containers para imagens SDK/runtime 10.",
-        "testStrategy": "Executar `dotnet build` para todos os projetos, validar `dotnet test` (incluindo testes existentes) e revisar pipelines/dockerfiles para garantir sucesso com SDK 10.",
+        "id": "1",
+        "title": "Atualizar solução para .NET 8 e propriedades compartilhadas",
+        "description": "Migrar toda a solution para alvo net8.0, habilitando recursos de linguagem exigidos e alinhando pacotes às versões compatíveis.",
+        "details": "Atualize `Directory.Build.props` para `<TargetFramework>net8.0</TargetFramework>`, habilite `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e defina `<AnalysisLevel>latest-all</AnalysisLevel>`. Centralize versões de pacotes (EntityFramework Core 8.0.121, RabbitMQ.Client ≥7.2.0, OpenTelemetry 1.14.0, Serilog 4.3.0). Execute `dotnet list package --outdated` e ajuste referências até o build ficar limpo. Pseudo:\n```\n<Project>\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n```\nGaranta que `dotnet build` e `dotnet test` rodem sem warnings críticos e atualize pipelines/containers para imagens SDK/runtime 8.",
+        "testStrategy": "Executar `dotnet build` para todos os projetos, validar `dotnet test` (incluindo testes existentes) e revisar pipelines/dockerfiles para garantir sucesso com SDK 8.",
         "priority": "medium",
         "dependencies": [],
         "status": "done",
@@ -16,7 +16,7 @@
             "title": "Levantar solution e arquivos compartilhados existentes",
             "description": "Mapeie a estrutura atual do repositório para identificar onde estão a solution, projetos .csproj e arquivos compartilhados (Directory.Build.props/Directory.Packages.props), visto que hoje o repo contém apenas documentos.",
             "dependencies": [],
-            "details": "Use buscas glob (ex.: `rg --files -g '*.sln'`, `rg --files -g '*.csproj'`) e `dotnet sln list` para confirmar se a solution está ausente ou apenas em outro diretório; caso não exista, obtenha a versão vigente do projeto original ou crie os arquivos-base antes de prosseguir.\n<info added on 2025-12-03T00:10:42.465Z>\n`rg --files -g '*.sln'` não retornou resultados, confirmando que não há solution no repositório; `rg --files -g '*.csproj'` encontrou apenas `src/Domain/Domain.csproj`, já targeting `net10.0` com `<Nullable>`/`<ImplicitUsings>` habilitados e atualização do `SonarAnalyzer` via `<PackageReference Update=\"SonarAnalyzer.CSharp\" Version=\"10.8.0.113526\" />`; o único `Directory.Build.props` (src/Directory.Build.props) cuida somente de analisadores/estilo (`AnalysisLevel`/`AnalysisMode`, flags de warnings) e não propaga TargetFramework/Nullable/ImplicitUsings/AnalysisLevel latest-all para os projetos; não existe `Directory.Packages.props` em nenhum nível; há diretórios `bin/` e `obj/` dentro de `src/Domain/`; próximo passo: criar/atualizar um `Directory.Build.props` na raiz do repo para impor net10.0 + propriedades comuns e, em seguida, partir para a centralização de pacotes.\n</info added on 2025-12-03T00:10:42.465Z>",
+            "details": "Use buscas glob (ex.: `rg --files -g '*.sln'`, `rg --files -g '*.csproj'`) e `dotnet sln list` para confirmar se a solution está ausente ou apenas em outro diretório; caso não exista, obtenha a versão vigente do projeto original ou crie os arquivos-base antes de prosseguir.\n<info added on 2025-12-03T00:10:42.465Z>\n`rg --files -g '*.sln'` não retornou resultados, confirmando que não há solution no repositório; `rg --files -g '*.csproj'` encontrou apenas `src/Domain/Domain.csproj`, já targeting `net8.0` com `<Nullable>`/`<ImplicitUsings>` habilitados e atualização do `SonarAnalyzer` via `<PackageReference Update=\"SonarAnalyzer.CSharp\" Version=\"10.8.0.113526\" />`; o único `Directory.Build.props` (src/Directory.Build.props) cuida somente de analisadores/estilo (`AnalysisLevel`/`AnalysisMode`, flags de warnings) e não propaga TargetFramework/Nullable/ImplicitUsings/AnalysisLevel latest-all para os projetos; não existe `Directory.Packages.props` em nenhum nível; há diretórios `bin/` e `obj/` dentro de `src/Domain/`; próximo passo: criar/atualizar um `Directory.Build.props` na raiz do repo para impor net8.0 + propriedades comuns e, em seguida, partir para a centralização de pacotes.\n</info added on 2025-12-03T00:10:42.465Z>",
             "status": "done",
             "testStrategy": null,
             "updatedAt": "2025-12-03T00:10:45.077Z",
@@ -24,12 +24,12 @@
           },
           {
             "id": 2,
-            "title": "Definir propriedades comuns net10 em Directory.Build.props",
-            "description": "Criar ou atualizar o `Directory.Build.props` na raiz para aplicar net10.0 e configurações exigidas a todos os projetos.",
+            "title": "Definir propriedades comuns net8 em Directory.Build.props",
+            "description": "Criar ou atualizar o `Directory.Build.props` na raiz para aplicar net8.0 e configurações exigidas a todos os projetos.",
             "dependencies": [
               1
             ],
-            "details": "Adicionar `<TargetFramework>net10.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e `<AnalysisLevel>latest-all</AnalysisLevel>`, garantindo que projetos multi-target mantenham condições específicas e que propriedades adicionais (Company, RepositoryUrl etc.) sejam preservadas.\n<info added on 2025-12-03T00:13:05.585Z>\nAplicar o novo `Directory.Build.props` na raiz (`Directory.Build.props`) com o `PropertyGroup` consolidando `<TargetFramework>net10.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `<AnalysisLevel>latest-all</AnalysisLevel>` e preservando `<AnalysisMode>All</AnalysisMode>`, `TreatWarningsAsErrors`, `CodeAnalysisTreatWarningsAsErrors` e `EnforceCodeStyleInBuild` exatamente como no arquivo anterior; adicionar o `ItemGroup` com `PackageReference` condicional para `SonarAnalyzer.CSharp` versão `10.8.0.113526` limitado a `*.csproj`. Remover o `src/Directory.Build.props` antigo (não deve existir conforme `find src -name 'Directory.Build.props'`) para evitar overrides e garantir que apenas o arquivo da raiz controle as propriedades globais.\n</info added on 2025-12-03T00:13:05.585Z>",
+            "details": "Adicionar `<TargetFramework>net8.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e `<AnalysisLevel>latest-all</AnalysisLevel>`, garantindo que projetos multi-target mantenham condições específicas e que propriedades adicionais (Company, RepositoryUrl etc.) sejam preservadas.\n<info added on 2025-12-03T00:13:05.585Z>\nAplicar o novo `Directory.Build.props` na raiz (`Directory.Build.props`) com o `PropertyGroup` consolidando `<TargetFramework>net8.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `<AnalysisLevel>latest-all</AnalysisLevel>` e preservando `<AnalysisMode>All</AnalysisMode>`, `TreatWarningsAsErrors`, `CodeAnalysisTreatWarningsAsErrors` e `EnforceCodeStyleInBuild` exatamente como no arquivo anterior; adicionar o `ItemGroup` com `PackageReference` condicional para `SonarAnalyzer.CSharp` versão `10.8.0.113526` limitado a `*.csproj`. Remover o `src/Directory.Build.props` antigo (não deve existir conforme `find src -name 'Directory.Build.props'`) para evitar overrides e garantir que apenas o arquivo da raiz controle as propriedades globais.\n</info added on 2025-12-03T00:13:05.585Z>",
             "status": "done",
             "testStrategy": null,
             "parentId": "undefined",
@@ -38,11 +38,11 @@
           {
             "id": 3,
             "title": "Centralizar e atualizar versões de pacotes compatíveis",
-            "description": "Padronizar as versões em `Directory.Packages.props` (ou ajustar cada csproj) para EF Core 10.0.0, RabbitMQ.Client ≥7.2.0, OpenTelemetry 1.14.0, Serilog 4.3.0 e demais dependências.",
+            "description": "Padronizar as versões em `Directory.Packages.props` (ou ajustar cada csproj) para EF Core 9.0.11, RabbitMQ.Client ≥7.2.0, OpenTelemetry 1.14.0, Serilog 4.3.0 e demais dependências.",
             "dependencies": [
               2
             ],
-            "details": "Executar `dotnet list package --outdated --include-transitive` em cada projeto para identificar gaps, atualizar as referências no props central ou nos csproj, validar restore e alinhar bindings (analyzers, Source Generators) com net10.\n<info added on 2025-12-03T00:17:38.185Z>\nCentralizei as dependências em `Directory.Packages.props`, com `<ManagePackageVersionsCentrally>true</...>` e entradas para `Microsoft.EntityFrameworkCore`, `Relational` e `Design` 10.0.0, `RabbitMQ.Client` 7.2.0, `OpenTelemetry` + `OpenTelemetry.Extensions.Hosting` 1.14.0, `Serilog` 4.3.0, `Serilog.Sinks.Console` 5.0.1 e `Serilog.Extensions.Hosting` 8.0.0, permitindo que os `.csproj` apenas incluam os pacotes sem declarar versões; após qualquer nova referência, rode `dotnet restore` seguido de `dotnet list package --outdated --include-transitive` para validar que não ficaram pendências.\n</info added on 2025-12-03T00:17:38.185Z>",
+            "details": "Executar `dotnet list package --outdated --include-transitive` em cada projeto para identificar gaps, atualizar as referências no props central ou nos csproj, validar restore e alinhar bindings (analyzers, Source Generators) com net8.\n<info added on 2025-12-03T00:17:38.185Z>\nCentralizei as dependências em `Directory.Packages.props`, com `<ManagePackageVersionsCentrally>true</...>` e entradas para `Microsoft.EntityFrameworkCore`, `Relational` e `Design` 9.0.11, `RabbitMQ.Client` 7.2.0, `OpenTelemetry` + `OpenTelemetry.Extensions.Hosting` 1.14.0, `Serilog` 4.3.0, `Serilog.Sinks.Console` 5.0.1 e `Serilog.Extensions.Hosting` 8.0.0, permitindo que os `.csproj` apenas incluam os pacotes sem declarar versões; após qualquer nova referência, rode `dotnet restore` seguido de `dotnet list package --outdated --include-transitive` para validar que não ficaram pendências.\n</info added on 2025-12-03T00:17:38.185Z>",
             "status": "done",
             "testStrategy": "Rodar `dotnet restore` e `dotnet list package --outdated` novamente para confirmar que não há versões pendentes.",
             "parentId": "undefined",
@@ -50,12 +50,12 @@
           },
           {
             "id": 4,
-            "title": "Garantir builds e testes limpos em net10",
+            "title": "Garantir builds e testes limpos em net8",
             "description": "Rodar `dotnet build` e `dotnet test` em toda a solution ajustando warnings/erros introduzidos pela migração.",
             "dependencies": [
               3
             ],
-            "details": "Atualizar code analyzers, suprimir warnings necessários via EditorConfig, revisar APIs obsoletas e ajustar project references até o build/test completar sem falhas ou warnings críticos em net10.\n<info added on 2025-12-03T00:24:18.642Z>\n`dotnet restore` seguido de `dotnet build src/Domain/Domain.csproj -clp:Summary` concluíram em net10.0 sem warnings (CS0628, CS8618, S1144, CA1062, CA1822); ajustes principais: src/Domain/Entities/BankAccount.cs usa `Balance { get; private set; }` e converteu os factories `Create` em métodos estáticos para alinhar com os analisadores; src/Domain/Entities/PixTransaction.cs inicializa `OriginPixKey` e `DestinationPixKey` com `string.Empty`, eliminando alertas de nullability/uso; src/Domain/Entities/Client.cs mantém `BankAccounts` apenas com getter e inicializa a coleção internamente para remover setters redundantes; src/Domain/Entities/Transaction.cs valida argumentos em `SetClient`/`SetBankAccount` com `ArgumentNullException.ThrowIfNull` cobrindo CA1062; não há projetos de teste no repositório, portanto `dotnet test` permanece não aplicado nesta etapa.\n</info added on 2025-12-03T00:24:18.642Z>",
+            "details": "Atualizar code analyzers, suprimir warnings necessários via EditorConfig, revisar APIs obsoletas e ajustar project references até o build/test completar sem falhas ou warnings críticos em net8.\n<info added on 2025-12-03T00:24:18.642Z>\n`dotnet restore` seguido de `dotnet build src/Domain/Domain.csproj -clp:Summary` concluíram em net8.0 sem warnings (CS0628, CS8618, S1144, CA1062, CA1822); ajustes principais: src/Domain/Entities/BankAccount.cs usa `Balance { get; private set; }` e converteu os factories `Create` em métodos estáticos para alinhar com os analisadores; src/Domain/Entities/PixTransaction.cs inicializa `OriginPixKey` e `DestinationPixKey` com `string.Empty`, eliminando alertas de nullability/uso; src/Domain/Entities/Client.cs mantém `BankAccounts` apenas com getter e inicializa a coleção internamente para remover setters redundantes; src/Domain/Entities/Transaction.cs valida argumentos em `SetClient`/`SetBankAccount` com `ArgumentNullException.ThrowIfNull` cobrindo CA1062; não há projetos de teste no repositório, portanto `dotnet test` permanece não aplicado nesta etapa.\n</info added on 2025-12-03T00:24:18.642Z>",
             "status": "done",
             "testStrategy": "Executar `dotnet build` e `dotnet test` em modo Verbose e revisar logs para garantir zero warnings críticos.",
             "parentId": "undefined",
@@ -63,25 +63,25 @@
           },
           {
             "id": 5,
-            "title": "Atualizar pipelines e contêineres para SDK/runtime 10",
-            "description": "Revisar Dockerfiles, docker-compose e pipelines (ex.: `.github/workflows`) para usar imagens e actions baseadas no SDK/runtime .NET 10.",
+            "title": "Atualizar pipelines e contêineres para SDK/runtime 8",
+            "description": "Revisar Dockerfiles, docker-compose e pipelines (ex.: `.github/workflows`) para usar imagens e actions baseadas no SDK/runtime .NET 8.",
             "dependencies": [
               4
             ],
-            "details": "Trocar tags `mcr.microsoft.com/dotnet/sdk` e runtime para 10, atualizar caches em workflows, validar que scripts de build/test/integration continuam funcionando e documentar o novo requisito de SDK nas instruções do projeto.\n<info added on 2025-12-03T00:26:11.651Z>\nNenhum Dockerfile, docker-compose ou workflow existe no repositório no momento (buscas com `find .. -name 'Dockerfile*'`, `find .. -name '*.yml'`, `find .. -name '*.yaml'` e `rg --files -g '*.yml' .github` não retornaram resultados), portanto não há ajustes imediatos de tags. Registrar que qualquer pipeline ou container futuro deve nascer em `mcr.microsoft.com/dotnet/sdk:10`/runtime 10 e configurar `actions/setup-dotnet` com `dotnet-version: 10.x`, mantendo coerência com o `TargetFramework net10.0` já definido em `Directory.Build.props`.\n</info added on 2025-12-03T00:26:11.651Z>",
+            "details": "Trocar tags `mcr.microsoft.com/dotnet/sdk` e runtime para 8, atualizar caches em workflows, validar que scripts de build/test/integration continuam funcionando e documentar o novo requisito de SDK nas instruções do projeto.\n<info added on 2025-12-03T00:26:11.651Z>\nNenhum Dockerfile, docker-compose ou workflow existe no repositório no momento (buscas com `find .. -name 'Dockerfile*'`, `find .. -name '*.yml'`, `find .. -name '*.yaml'` e `rg --files -g '*.yml' .github` não retornaram resultados), portanto não há ajustes imediatos de tags. Registrar que qualquer pipeline ou container futuro deve nascer em `mcr.microsoft.com/dotnet/sdk:8`/runtime 8 e configurar `actions/setup-dotnet` com `dotnet-version: 8.x`, mantendo coerência com o `TargetFramework net8.0` já definido em `Directory.Build.props`.\n</info added on 2025-12-03T00:26:11.651Z>",
             "status": "done",
-            "testStrategy": "Subir o compose atualizado localmente e disparar o workflow de CI (ou usar `act`) para confirmar que as imagens .NET 10 executam build/test com sucesso.",
+            "testStrategy": "Subir o compose atualizado localmente e disparar o workflow de CI (ou usar `act`) para confirmar que as imagens .NET 8 executam build/test com sucesso.",
             "parentId": "undefined",
             "updatedAt": "2025-12-03T00:26:14.967Z"
           }
         ],
         "complexity": 6,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Mapeie a ausência atual de arquivos .sln (nenhum retorno de `rg --files -g '*.sln'`) e identifique todos os csproj existentes (hoje apenas `src/Domain/Domain.csproj`). Atualize `src/Directory.Build.props` para incluir TargetFramework net10.0, Nullable/ImplicitUsings habilitados e AnalysisLevel latest-all, criando `Directory.Packages.props` se necessário para centralizar versões (EF Core 10, RabbitMQ.Client >=7.2, OpenTelemetry 1.14, Serilog 4.3). Rode `dotnet list package --outdated`/`dotnet build`/`dotnet test` ajustando referências até ficarem limpos e crie ou atualize pipelines/Dockerfiles inexistentes para usar imagens SDK/runtime 10.",
+        "expansionPrompt": "Mapeie a ausência atual de arquivos .sln (nenhum retorno de `rg --files -g '*.sln'`) e identifique todos os csproj existentes (hoje apenas `src/Domain/Domain.csproj`). Atualize `src/Directory.Build.props` para incluir TargetFramework net8.0, Nullable/ImplicitUsings habilitados e AnalysisLevel latest-all, criando `Directory.Packages.props` se necessário para centralizar versões (EF Core 9.0.11, RabbitMQ.Client >=7.2, OpenTelemetry 1.14, Serilog 4.3). Rode `dotnet list package --outdated`/`dotnet build`/`dotnet test` ajustando referências até ficarem limpos e crie ou atualize pipelines/Dockerfiles inexistentes para usar imagens SDK/runtime 8.",
         "updatedAt": "2025-12-03T00:26:14.967Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Reestruturar camada Domain com entidades e DTOs aderentes ao TPH",
         "description": "Modelar entidades Client, BankAccount e Transaction (com derivadas Pix/Money/Card) seguindo Clean Architecture e habilitando validações invariantes.",
         "details": "Crie projeto `Domain` com record structs/ classes imutáveis onde aplicável. Estruture propriedades obrigatórias (`ClientId`, `Cpf`, `AccountNumber`, `Balance`, `TransactionId`, `Amount`, `Status`). Adicione métodos de negócio (`BankAccount.Debit`, `Credit`) retornando Result ou lançando DomainException específica. Pseudo:\n```\npublic sealed class BankAccount {\n  public Money Balance { get; private set; }\n  public void Debit(Money amount) {\n     if(Balance < amount) throw DomainException.InsufficientFunds;\n     Balance -= amount;\n  }\n}\n```\nDefina DTOs `PixTransactionDto`/`MoneyTransactionDto` e enums de status. Evite AutoMapper, portanto inclua mapeamentos manuais estáticos.",
@@ -93,9 +93,9 @@
           {
             "id": 1,
             "title": "Criar projeto Domain e base de exceções/resultados",
-            "description": "Adicionar projeto Domain à solution, configurar net10.0 e diretórios para Entities, ValueObjects e DTOs, além de tipos base como DomainException e Result.",
+            "description": "Adicionar projeto Domain à solution, configurar net8.0 e diretórios para Entities, ValueObjects e DTOs, além de tipos base como DomainException e Result.",
             "dependencies": [],
-            "details": "Utilize dotnet new classlib net10.0, ajuste Directory.Build.props conforme padrões existentes e introduza DomainException (estática para códigos conhecidos) e um tipo Result<T> imutável para retornos de operações.\n<info added on 2025-12-03T00:36:52.239Z>\nBase já criada: src/Domain/Common/Result.cs contém Result e Result<T> imutáveis para propagar sucesso/falha sem exceções, enquanto src/Domain/Common/DomainException.cs expõe factories com códigos estáveis (invalid_cpf, invalid_account_number, invalid_money, insufficient_funds, invalid_transaction); o projeto Domain.csproj também foi incluído em MyNewLittleBank.sln, garantindo referência direta dentro da solution.\n</info added on 2025-12-03T00:36:52.239Z>",
+            "details": "Utilize dotnet new classlib net8.0, ajuste Directory.Build.props conforme padrões existentes e introduza DomainException (estática para códigos conhecidos) e um tipo Result<T> imutável para retornos de operações.\n<info added on 2025-12-03T00:36:52.239Z>\nBase já criada: src/Domain/Common/Result.cs contém Result e Result<T> imutáveis para propagar sucesso/falha sem exceções, enquanto src/Domain/Common/DomainException.cs expõe factories com códigos estáveis (invalid_cpf, invalid_account_number, invalid_money, insufficient_funds, invalid_transaction); o projeto Domain.csproj também foi incluído em MyNewLittleBank.sln, garantindo referência direta dentro da solution.\n</info added on 2025-12-03T00:36:52.239Z>",
             "status": "done",
             "testStrategy": null,
             "parentId": "undefined",
@@ -147,7 +147,7 @@
             "dependencies": [
               4
             ],
-            "details": "Implemente testes com xUnit/NUnit verificando Result success/failure, exceções específicas e comportamento TPH (derivadas), incluindo casos limites de Money e BankAccount Debit/Credit; documente arrange/act/assert para fácil manutenção.\n<info added on 2025-12-03T00:39:52.731Z>\nProjeto Domain.Tests em tests/Domain.Tests/Domain.Tests.csproj criado com xUnit 2.9.0 e FluentAssertions (target net10.0) referenciando Domain; ValueObjectsTests.cs valida CPF válido/inválido e aritmética de Money, BankAccountTests.cs cobre crédito positivo e exceção insufficient_funds, TransactionDtoMapperTests.cs garante round-trip de Pix entidade/DTO preservando campos TPH. dotnet test MyNewLittleBank.sln falhou localmente ao abrir NamedPipe por System.Net.Sockets.SocketException (13) durante o spawn de processos do MSBuild, sugerindo restrições do sandbox; retestar em ambiente sem bloqueio de pipes ou desabilitando o node reuse assim que possível. Restore finalizado com aviso NU1603 apontando a resolução de xunit 2.9.0.\n</info added on 2025-12-03T00:39:52.731Z>",
+            "details": "Implemente testes com xUnit/NUnit verificando Result success/failure, exceções específicas e comportamento TPH (derivadas), incluindo casos limites de Money e BankAccount Debit/Credit; documente arrange/act/assert para fácil manutenção.\n<info added on 2025-12-03T00:39:52.731Z>\nProjeto Domain.Tests em tests/Domain.Tests/Domain.Tests.csproj criado com xUnit 2.9.0 e FluentAssertions (target net8.0) referenciando Domain; ValueObjectsTests.cs valida CPF válido/inválido e aritmética de Money, BankAccountTests.cs cobre crédito positivo e exceção insufficient_funds, TransactionDtoMapperTests.cs garante round-trip de Pix entidade/DTO preservando campos TPH. dotnet test MyNewLittleBank.sln falhou localmente ao abrir NamedPipe por System.Net.Sockets.SocketException (13) durante o spawn de processos do MSBuild, sugerindo restrições do sandbox; retestar em ambiente sem bloqueio de pipes ou desabilitando o node reuse assim que possível. Restore finalizado com aviso NU1603 apontando a resolução de xunit 2.9.0.\n</info added on 2025-12-03T00:39:52.731Z>\n<info added on 2025-12-03T11:55:44.583Z>\nRegistrar que o guia doc/code-style-guide.md exige AwesomeAssertions 9.3.0 e que o projeto de teste já aponta para o pacote em tests/Domain.Tests/Domain.Tests.csproj:13; documentar que todos os arquivos de teste (ValueObjectsTests.cs, BankAccountTests.cs e TransactionDtoMapperTests.cs) migraram os imports para `using AwesomeAssertions;`, garantindo que as extensões `Should()` permaneçam consistentes com o padrão corporativo após a remoção completa de FluentAssertions.\n</info added on 2025-12-03T11:55:44.583Z>",
             "status": "done",
             "testStrategy": "Executar dotnet test Domain.Tests garantindo 100% de passagem e cobrindo invariantes principais, inclusive exceções comparáveis.",
             "parentId": "undefined",
@@ -160,33 +160,33 @@
         "updatedAt": "2025-12-03T00:39:56.720Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implementar Infra.Database com EF Core, Unit of Work e migrações TPH",
         "description": "Fornecer DbContext configurado para PostgreSQL, entidades mapeadas em TPH e padrões Repository/UoW prontos para consumo.",
-        "details": "Crie `MyLittleBankContext` herdando de `DbContext`, registre `DbSet<Client>`, `DbSet<BankAccount>`, `DbSet<Transaction>`. Configure `UseNpgsql` e `UseSnakeCaseNamingConvention`. Em `OnModelCreating`, defina TPH: `builder.HasDiscriminator<string>(\"transaction_type\")`. Configure `RowVersion`/concurrency tokens. Implante `IUnitOfWork` encapsulando `SaveChangesAsync`. Crie migrações com `dotnet ef migrations add Initial --project Infra.Database`. Pseudo:\n```\nprotected override void OnModelCreating(ModelBuilder modelBuilder) {\n  modelBuilder.Entity<Transaction>()\n    .HasDiscriminator<string>(\"transaction_type\")\n    .HasValue<PixTransaction>(\"pix\");\n}\n```\nInclua seeds opcionais com clients/contas mock.",
+        "details": "Crie `MyNewLittleBankContext` herdando de `DbContext`, registre `DbSet<Client>`, `DbSet<BankAccount>`, `DbSet<Transaction>`. Configure `UseNpgsql` e `UseSnakeCaseNamingConvention`. Em `OnModelCreating`, defina TPH: `builder.HasDiscriminator<string>(\"transaction_type\")`. Configure `RowVersion`/concurrency tokens. Implante `IUnitOfWork` encapsulando `SaveChangesAsync`. Crie migrações com `dotnet ef migrations add Initial --project Infra.Database`. Pseudo:\n```\nprotected override void OnModelCreating(ModelBuilder modelBuilder) {\n  modelBuilder.Entity<Transaction>()\n    .HasDiscriminator<string>(\"transaction_type\")\n    .HasValue<PixTransaction>(\"pix\");\n}\n```\nInclua seeds opcionais com clients/contas mock.",
         "testStrategy": "Executar `dotnet ef database update` em container Postgres local, verificar estrutura TPH, e criar testes de integração in-memory ou usando Testcontainers para CRUD básico.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Criar projeto Infra.Database e configurar pacotes EF Core",
             "description": "Adicionar o projeto Infra.Database à solução e referenciar Domain, garantindo que os pacotes EF Core (relational, design, Npgsql) estejam incluídos.",
             "dependencies": [],
-            "details": "Use `dotnet new classlib` para Infra.Database, atualize o csproj para net10.0 e registre pacotes Microsoft.EntityFrameworkCore*, Npgsql e ferramentas de migração; alinhe namespaces e pastas para Context, Configurations e Repositories.",
+            "details": "Use `dotnet new classlib` para Infra.Database, atualize o csproj para net8.0 e registre pacotes Microsoft.EntityFrameworkCore*, Npgsql e ferramentas de migração; alinhe namespaces e pastas para Context, Configurations e Repositories.",
             "status": "pending",
             "testStrategy": "Executar `dotnet build` na solução para garantir que o novo projeto compila e que os pacotes EF estão restaurados.",
             "parentId": "undefined"
           },
           {
             "id": 2,
-            "title": "Implementar MyLittleBankContext com configurações de provider",
+            "title": "Implementar MyNewLittleBankContext com configurações de provider",
             "description": "Criar a classe DbContext com DbSets para Client, BankAccount e Transaction, configurando Npgsql e snake_case via extensions.",
             "dependencies": [
               1
             ],
-            "details": "Defina `MyLittleBankContext : DbContext`, injete `DbContextOptions`, exponha DbSet<Client>, BankAccount e Transaction; configure `UseNpgsql` e `UseSnakeCaseNamingConvention` em `AddDbContext`/factory e providencie construtor sem parâmetros para migrações se necessário.",
+            "details": "Defina `MyNewLittleBankContext : DbContext`, injete `DbContextOptions`, exponha DbSet<Client>, BankAccount e Transaction; configure `UseNpgsql` e `UseSnakeCaseNamingConvention` em `AddDbContext`/factory e providencie construtor sem parâmetros para migrações se necessário.",
             "status": "pending",
             "testStrategy": "Adicionar teste de integração simples que instancia o contexto com `UseInMemoryDatabase` e valida a criação dos DbSets.",
             "parentId": "undefined"
@@ -210,7 +210,7 @@
             "dependencies": [
               3
             ],
-            "details": "Defina `IRepository<T>` ou repositórios específicos com métodos básicos, implemente-os usando o `MyLittleBankContext`; crie `IUnitOfWork` com `Task<int> SaveChangesAsync(CancellationToken)` e, se aplicável, suporte a transações e `IDisposable/ IAsyncDisposable`.",
+            "details": "Defina `IRepository<T>` ou repositórios específicos com métodos básicos, implemente-os usando o `MyNewLittleBankContext`; crie `IUnitOfWork` com `Task<int> SaveChangesAsync(CancellationToken)` e, se aplicável, suporte a transações e `IDisposable/ IAsyncDisposable`.",
             "status": "pending",
             "testStrategy": "Adicionar testes unitários com contexto InMemory validando que os repositórios manipulam entidades e que `UnitOfWork.SaveChangesAsync` propaga transações e exceções.",
             "parentId": "undefined"
@@ -230,10 +230,11 @@
         ],
         "complexity": 8,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Adicione o projeto `Infra.Database` (não há nenhum diretório correspondente nos resultados de `rg --files`), referencie o Domain existente e inclua pacotes EF Core/Npgsql. Implemente `MyLittleBankContext` com `DbSet` para Client/BankAccount/Transaction, configure `UseNpgsql`/SnakeCase, RowVersion e TPH no `OnModelCreating`. Crie repositórios e `IUnitOfWork` com `SaveChangesAsync`, gere migração inicial (`dotnet ef migrations add Initial --project Infra.Database`) e valide contra Postgres local."
+        "expansionPrompt": "Adicione o projeto `Infra.Database` (não há nenhum diretório correspondente nos resultados de `rg --files`), referencie o Domain existente e inclua pacotes EF Core/Npgsql. Implemente `MyLittleBankContext` com `DbSet` para Client/BankAccount/Transaction, configure `UseNpgsql`/SnakeCase, RowVersion e TPH no `OnModelCreating`. Crie repositórios e `IUnitOfWork` com `SaveChangesAsync`, gere migração inicial (`dotnet ef migrations add Initial --project Infra.Database`) e valide contra Postgres local.",
+        "updatedAt": "2025-12-03T14:14:08.123Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implementar Outbox/Inbox e dispatcher confiável no banco",
         "description": "Adicionar tabelas e serviços para garantir entrega exatamente-uma-vez entre banco e RabbitMQ.",
         "details": "No `Infra.Database`, crie tabelas `outbox_messages` e `inbox_messages` com colunas `MessageId`, `Payload`, `OccurredOn`, `SentOn`, `Status`. No fluxo de domínio, salve eventos pendentes no Outbox via UnitOfWork. Desenvolva `OutboxDispatcher` como `BackgroundService` lendo lotes com `FOR UPDATE SKIP LOCKED`, publicando via `IPublisherService` e marcando como processado. Inbox: durante consumo, verifique `InboxMessages` antes de aplicar transação e insira registro para idempotência. Pseudo:\n```\nawait using var tx = await _db.Database.BeginTransactionAsync();\n_db.Outbox.Add(message);\nawait _db.SaveChangesAsync();\nawait tx.CommitAsync();\n```\nAdicionar política de retenção e limpeza.",
@@ -308,7 +309,7 @@
         "expansionPrompt": "Dentro do projeto Infra.Database (a ser criado), modele entidades Outbox/Inbox e respectivas tabelas/mapeamentos EF. Ajuste o UnitOfWork para persistir eventos de domínio no Outbox na mesma transação e crie `OutboxDispatcher` como BackgroundService que lê lotes com `FOR UPDATE SKIP LOCKED`, publica via `IPublisherService` e atualiza status/retentativa. Implemente lógica Inbox para consumidores consultarem/registrarem mensagens idempotentes e adicione rotinas de limpeza e testes de falha/retomada."
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Criar infraestrutura RabbitMQ (connection factory, publisher, consumer) com retries/DLQ",
         "description": "Desenvolver `Infra.Message` responsável por conexões duráveis, publicação confirmada e consumo com controle de erros.",
         "details": "Implemente `RabbitConnectionFactory` usando `ConnectionFactory` configurada com TLS e credenciais via `IOptions<RabbitOptions>`. `PublisherService` deve usar `IModel.ConfirmSelect()`, publicar com `IBasicProperties` contendo `MessageId`, `traceparent`, `ContentType`. `ConsumerService<T>` herda de `BackgroundService`, usa `BasicQos` para prefetch, `BasicConsume` com manual ack. Configure exchanges/queues via `IRabbitTopologyBootstrapper` definindo TTL e DLQ: `args[\"x-dead-letter-exchange\"] = \"dlx.transactions\"`. Retentativas: mover para fila de atraso com headers `x-death` e contagem limitada antes de DLQ. Pseudo:\n```\n_channel.BasicPublish(exchange, routingKey, true, props, body);\n_channel.WaitForConfirmsOrDie();\n```\nDocumentar convenções de nomenclatura.",
@@ -386,7 +387,7 @@
         "expansionPrompt": "Crie um projeto `Infra.Message` (não há referências a RabbitMQ fora do PRD) contendo contratos/opções (`RabbitOptions`), `RabbitConnectionFactory` com TLS/reconexão, `PublisherService` com `ConfirmSelect`/WaitForConfirms e `RabbitConsumerService<T>` com `BasicQos`, ack manual, retries, filas de atraso e DLQ. Acrescente `RabbitTopologyBootstrapper` para exchanges/filas com TTL/DLQ e documentação das convenções."
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Implementar UseCases de processamento de transações",
         "description": "Codificar casos de uso (ex.: ProcessPixTransaction) que coordenam domínio, UoW e mensagens de saída.",
         "details": "Crie `ProcessTransactionsHandler` com métodos específicos por tipo. Cada método deve:\n1. Resolver `BankAccount` origem/destino via repositórios.\n2. Invocar regras de domínio (`Debit/Credit`).\n3. Persistir via UnitOfWork.\n4. Registrar eventos em Outbox (ex.: `TransactionProcessedEvent`).\nPseudo:\n```\npublic async Task Handle(PixTransactionDto dto) {\n  await using var uow = _uowFactory.Create();\n  var account = await _accounts.GetAsync(dto.AccountId);\n  account.Debit(dto.Amount);\n  await uow.SaveChangesAsync(cancellationToken);\n}\n```\nSem AutoMapper: converta DTO->entidade manualmente. Implementar validações (saldo, limites, status).",
@@ -461,7 +462,7 @@
         "expansionPrompt": "Defina contratos necessários (repositories, UoW factory, serviços de Outbox) para `ProcessTransactionsHandler`, tomando como base que apenas o domínio cru existe hoje. Implementar classe base que roteia DTOs para métodos específicos, além dos fluxos `ProcessPixTransaction`, `ProcessMoneyTransaction` e `ProcessCardTransaction` realizando validações, debit/credit via entidades e registro no Outbox. Garanta testes unitários/integrados simulando repositórios e Outbox."
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Desenvolver serviços consumidores Pix/Money/Card e publisher de heartbeat",
         "description": "Criar workers hospedados (BackgroundService) que utilizam `Infra.Message` e `UseCases` para processar filas dedicadas e manter monitoramento.",
         "details": "Para cada serviço em `Services/*`, configure `Host.CreateApplicationBuilder`, registre DbContext, UseCases e Consumer. `PixTransactionReceiver : RabbitConsumerService<PixTransactionDto>` decodifica payload com `System.Text.Json` source-generated context. Utilize `CancellationToken` para shutdown gracioso e `ValueTask` nos handlers críticos. Heartbeat: `HeartbeatPublisher` publica mensagem `service:status` a cada intervalo, `HeartbeatConsumer` atualiza `ServiceStatus` em cache/DB. Pseudo:\n```\nprotected override async Task HandleMessage(byte[] body) {\n  var dto = PixTransactionContext.Deserialize(body);\n  await _processPix.Handle(dto);\n}\n```\nConfigurar `appsettings` por serviço e arquivos Docker multi-stage.",
@@ -475,7 +476,7 @@
             "title": "Mapear infraestrutura existente e definir bootstrap dos workers",
             "description": "Revisar projetos `Infra.Message`, `Infra.Database` e `UseCases` para entender opções de configuração, contextos e services já implementados, preparando o plano de registro para cada worker.",
             "dependencies": [],
-            "details": "Identificar classes como `RabbitConnectionFactory`, `RabbitConsumerService<T>`, `MyLittleBankContext` e handlers em `UseCases` para garantir que os serviços consumidores possam injetá-los corretamente via `Host.CreateApplicationBuilder`. Documentar quais opções (`RabbitOptions`, `DatabaseOptions`) precisam estar disponíveis e quais filas/exchanges cada worker utilizará.",
+            "details": "Identificar classes como `RabbitConnectionFactory`, `RabbitConsumerService<T>`, `MyNewLittleBankContext` e handlers em `UseCases` para garantir que os serviços consumidores possam injetá-los corretamente via `Host.CreateApplicationBuilder`. Documentar quais opções (`RabbitOptions`, `DatabaseOptions`) precisam estar disponíveis e quais filas/exchanges cada worker utilizará.",
             "status": "pending",
             "testStrategy": "Checklist/manual: validar que todas as dependências necessárias foram mapeadas e possuem configurações disponíveis antes de iniciar a codificação.",
             "parentId": "undefined"
@@ -535,7 +536,7 @@
         "expansionPrompt": "Criar projetos `Services/Pix`, `Services/Money`, `Services/Card` (nenhum existe hoje) que inicializam `Host.CreateApplicationBuilder`, registram DbContext/Infra.Message/UseCases e adicionam consumidores específicos herdando do `RabbitConsumerService<T>`. Implementar receivers usando `System.Text.Json` source-generated, lidar com CancellationToken/logs e criar `HeartbeatPublisher/Consumer`. Completar com configs appsettings, health checks e Dockerfiles para cada worker."
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implementar Mock.Transactions e pipelines de publicação assíncrona",
         "description": "Construir worker gerador de transações para testes/demos, utilizando `Infra.Message` para publicar em exchanges corretas.",
         "details": "Crie `MockTransactionsWorker` que lê configurações (ex.: taxa de mensagens por segundo) e gera DTOs com `Bogus`. Suporta múltiplos tipos usando `FrozenDictionary<string, Func<TransactionDto>>` para reduzir alocação. Pseudo:\n```\nwhile(!stoppingToken.IsCancellationRequested){\n  var dto = _generators[type]();\n  await _publisher.PublishAsync(route, dto, headers);\n  await Task.Delay(_settings.Interval, stoppingToken);\n}\n```\nAdicionar CLI args para escolher intensidade e destino. Garantir tracing/MessageId aderentes ao pipeline.",
@@ -608,7 +609,7 @@
         "expansionPrompt": "Adicionar projeto `Mock.Transactions` inexistente, configurando opções (`MockTransactionsSettings`), host genérico e dependências de `Infra.Message`. Implementar fábrica de geradores de DTOs com Bogus + `FrozenDictionary`, criar `MockTransactionsWorker` que respeita taxa configurável e publica via `IPublisherService`, expor CLI/variáveis para intensidade/destino e instrumentar logs/tracing, validando via RabbitMQ local."
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Instrumentar observabilidade (OpenTelemetry, logs estruturados, health checks)",
         "description": "Adicionar tracing, métricas e logging estruturado em todos os serviços com propagação de contexto via RabbitMQ e health checks para infraestrutura.",
         "details": "Use `builder.Services.AddOpenTelemetry()` com `ResourceBuilder.CreateDefault().AddService(serviceName)`. Adicione `AddOtlpExporter` para traces/métricas, `AddPrometheusExporter` quando aplicável. No publisher/consumer, propague `traceparent`/`tracestate` nos headers e extraia antes do processamento. Configurar `Serilog` com sink OpenSearch (Elastic Common Schema) e redaction de PII. Health checks: `services.AddHealthChecks().AddNpgSql(conn).AddRabbitMQ()`. Expor endpoints `health/live` e `health/ready`. Pseudo:\n```\nusing var activity = _activitySource.StartActivity(\"Process Pix\");\nactivity?.SetTag(\"transaction.id\", dto.Id);\n```\n",
@@ -682,7 +683,7 @@
         "expansionPrompt": "Projetar módulo compartilhado (ex.: `Shared/Observability`) dado que hoje não existe nenhuma configuração OTel/Serilog. Implementar extensões que registrem `AddOpenTelemetry`, exporters OTLP/Prometheus e Serilog (OpenSearch + redaction). Aplicar essas extensões em todos os serviços/workers, garantir propagação de contexto nos publishers/consumidores e expor endpoints de health checks (live/ready) para web/hosts. Finalizar com cenário E2E validando traces, métricas e logs."
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Montar suíte de testes de integração e orquestração Docker/CI",
         "description": "Preparar docker-compose, Testcontainers e pipelines GitHub Actions garantindo validação automatizada.",
         "details": "Crie `docker-compose.yml` com serviços Postgres, RabbitMQ, OpenSearch, Jaeger/Prometheus e perfis para local/CI (healthchecks, recursos). Configure `Tests/Integration` usando `DotNet.Testcontainers` para subir Rabbit/Postgres dinamicamente, executando cenários: publicação→processamento→persistência, Outbox dispatcher, Inbox dedupe. Na CI (GitHub Actions), configure jobs: `build`, `unit-tests`, `integration-tests` (usa compose) e `docker-build` para cada serviço com multi-stage (AOT quando viável). Pseudo workflow:\n```\n- uses: actions/setup-dotnet@v4\n- run: dotnet test --filter Category=Integration\n- run: docker compose -f infra/compose.yml up -d\n```\nInclua `.devcontainer` com extensões recomendadas e scripts de bootstrap.",
@@ -708,7 +709,7 @@
             "dependencies": [
               1
             ],
-            "details": "Adicionar um novo projeto (ex.: `Tests/Integration/MyLittleBank.Tests.Integration.csproj`) referenciando os assemblies de domínio/infra. Instalar `DotNet.Testcontainers` e utilitários necessários. Implementar fixtures que sobem contêineres de Postgres e Rabbit via `TestcontainersBuilder`, expõem connection strings via `IAsyncLifetime`, aplicam migrações e limpam recursos entre testes. Criar categoria/trait `Category=Integration` para filtro nas execuções locais e em CI, incluindo base class `IntegrationTestBase` com helpers para publish/consume.",
+            "details": "Adicionar um novo projeto (ex.: `Tests/Integration/MyNewLittleBank.Tests.Integration.csproj`) referenciando os assemblies de domínio/infra. Instalar `DotNet.Testcontainers` e utilitários necessários. Implementar fixtures que sobem contêineres de Postgres e Rabbit via `TestcontainersBuilder`, expõem connection strings via `IAsyncLifetime`, aplicam migrações e limpam recursos entre testes. Criar categoria/trait `Category=Integration` para filtro nas execuções locais e em CI, incluindo base class `IntegrationTestBase` com helpers para publish/consume.",
             "status": "pending",
             "testStrategy": "Rodar `dotnet test Tests/Integration --filter Category=Integration` localmente para garantir que os contêineres sobem e derrubam corretamente e que migrations rodam antes dos testes.",
             "parentId": "undefined"
@@ -760,15 +761,12 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-03T00:39:56.720Z",
+      "lastModified": "2025-12-03T14:14:08.124Z",
       "taskCount": 10,
-      "completedCount": 2,
+      "completedCount": 3,
       "tags": [
         "master"
-      ],
-      "created": "2025-12-03T00:40:35.974Z",
-      "description": "Tasks for master context",
-      "updated": "2025-12-03T00:40:35.974Z"
+      ]
     }
   }
 }

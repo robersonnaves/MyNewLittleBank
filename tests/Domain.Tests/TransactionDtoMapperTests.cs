@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Domain.DTOs;
 using Domain.Entities;
 using Domain.ValueObjects;

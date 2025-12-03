@@ -19,6 +19,7 @@ public sealed class Client
     public string Email { get; private set; }
     public string MobileNumber { get; private set; }
     public IReadOnlyCollection<BankAccount> BankAccounts => _accounts.AsReadOnly();
+    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
     public static Result<Client> Create(ClientId id, Cpf cpf, string name, string email, string mobileNumber)
     {

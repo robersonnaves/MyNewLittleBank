@@ -19,6 +19,7 @@ public sealed class BankAccount
     public Money Balance { get; private set; }
     public DateTime OpenedAt { get; }
     public IReadOnlyCollection<TransactionId> Transactions => _transactions.AsReadOnly();
+    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
     public static Result<BankAccount> Open(ClientId clientId, AccountNumber accountNumber, Money initialBalance)
     {

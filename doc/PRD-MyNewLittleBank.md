@@ -132,7 +132,7 @@ A solução é dividida em vários projetos C#, cada um com uma responsabilidade
 
 A reescrita deve manter a stack tecnológica principal, atualizando para as versões mais recentes e estáveis:
 
-- **Linguagem/Framework:** .NET 10 (versão mais recente LTS ou ST)
+- **Linguagem/Framework:** .NET 8 (versão mais recente LTS ou ST)
 - **Containerização:** Docker
 - **Banco de Dados:** PostgreSQL
 - **Mensageria:** RabbitMQ

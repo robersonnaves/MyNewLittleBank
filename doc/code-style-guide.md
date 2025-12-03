@@ -28,7 +28,7 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 
 **Stack Tecnológica**:
 
-- .NET 8 (LTS ou ST)
+- .NET 10 (LTS ou ST)
 - PostgreSQL
 - RabbitMQ (RabbitMQ.Client)
 - Entity Framework Core
@@ -371,6 +371,6 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 - Centralizar versões e propriedades em `Directory.Build.props`
 - Reduzir duplicação entre projetos
 - Versões pinadas de pacotes
-- Configurações globais: `net8.0`, `Nullable`, `ImplicitUsings`, `AnalysisLevel`
+- Configurações globais: `net10.0`, `Nullable`, `ImplicitUsings`, `AnalysisLevel`
 
 **Última atualização**: 2025-12-02
