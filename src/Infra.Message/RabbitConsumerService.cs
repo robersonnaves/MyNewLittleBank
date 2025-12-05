@@ -1,5 +1,4 @@
-using System.Text;
-using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +14,7 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
     private readonly RabbitOptions _options;
     private readonly ILogger _logger;
     private IChannel? _channel;
+    private CancellationToken _stoppingToken;
 
     protected RabbitConsumerService(IRabbitConnectionFactory factory, IOptions<RabbitOptions> options, ILogger logger)
     {
@@ -31,6 +31,7 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _stoppingToken = stoppingToken;
         _channel = await _factory.CreateChannelAsync(stoppingToken).ConfigureAwait(false);
         await _channel.BasicQosAsync(0, _options.PrefetchCount, global: false, cancellationToken: stoppingToken).ConfigureAwait(false);
 
@@ -49,14 +50,13 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
 
         try
         {
-            var message = JsonSerializer.Deserialize<TMessage>(Encoding.UTF8.GetString(args.Body.ToArray()));
-            if (message is null)
+            if (!TryDeserialize(args.Body, out var message) || message is null)
             {
                 await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
                 return;
             }
 
-            await ProcessMessageAsync(message, args.BasicProperties).ConfigureAwait(false);
+            await ProcessMessageAsync(message, args.BasicProperties, _stoppingToken).ConfigureAwait(false);
             await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -87,7 +87,7 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
                 mandatory: false,
                 basicProperties: retryProperties,
                 body: args.Body,
-                cancellationToken: CancellationToken.None).ConfigureAwait(false);
+                cancellationToken: _stoppingToken).ConfigureAwait(false);
 
             await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
             _logger.LogWarning(ex, "Message requeued for retry attempt {RetryCount}", retryCount + 1);
@@ -142,5 +142,8 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
         return properties;
     }
 
-    protected abstract Task ProcessMessageAsync(TMessage message, IReadOnlyBasicProperties properties);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected abstract bool TryDeserialize(ReadOnlyMemory<byte> body, out TMessage? message);
+
+    protected abstract ValueTask ProcessMessageAsync(TMessage message, IReadOnlyBasicProperties properties, CancellationToken cancellationToken);
 }

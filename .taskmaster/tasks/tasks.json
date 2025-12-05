@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Atualizar solução para .NET 8 e propriedades compartilhadas",
         "description": "Migrar toda a solution para alvo net8.0, habilitando recursos de linguagem exigidos e alinhando pacotes às versões compatíveis.",
         "details": "Atualize `Directory.Build.props` para `<TargetFramework>net8.0</TargetFramework>`, habilite `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>` e defina `<AnalysisLevel>latest-all</AnalysisLevel>`. Centralize versões de pacotes (EntityFramework Core 8.0.121, RabbitMQ.Client ≥7.2.0, OpenTelemetry 1.14.0, Serilog 4.3.0). Execute `dotnet list package --outdated` e ajuste referências até o build ficar limpo. Pseudo:\n```\n<Project>\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <Nullable>enable</Nullable>\n  </PropertyGroup>\n</Project>\n```\nGaranta que `dotnet build` e `dotnet test` rodem sem warnings críticos e atualize pipelines/containers para imagens SDK/runtime 8.",
@@ -81,7 +81,7 @@
         "updatedAt": "2025-12-03T00:26:14.967Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Reestruturar camada Domain com entidades e DTOs aderentes ao TPH",
         "description": "Modelar entidades Client, BankAccount e Transaction (com derivadas Pix/Money/Card) seguindo Clean Architecture e habilitando validações invariantes.",
         "details": "Crie projeto `Domain` com record structs/ classes imutáveis onde aplicável. Estruture propriedades obrigatórias (`ClientId`, `Cpf`, `AccountNumber`, `Balance`, `TransactionId`, `Amount`, `Status`). Adicione métodos de negócio (`BankAccount.Debit`, `Credit`) retornando Result ou lançando DomainException específica. Pseudo:\n```\npublic sealed class BankAccount {\n  public Money Balance { get; private set; }\n  public void Debit(Money amount) {\n     if(Balance < amount) throw DomainException.InsufficientFunds;\n     Balance -= amount;\n  }\n}\n```\nDefina DTOs `PixTransactionDto`/`MoneyTransactionDto` e enums de status. Evite AutoMapper, portanto inclua mapeamentos manuais estáticos.",
@@ -160,7 +160,7 @@
         "updatedAt": "2025-12-03T00:39:56.720Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implementar Infra.Database com EF Core, Unit of Work e migrações TPH",
         "description": "Fornecer DbContext configurado para PostgreSQL, entidades mapeadas em TPH e padrões Repository/UoW prontos para consumo.",
         "details": "Crie `MyNewLittleBankContext` herdando de `DbContext`, registre `DbSet<Client>`, `DbSet<BankAccount>`, `DbSet<Transaction>`. Configure `UseNpgsql` e `UseSnakeCaseNamingConvention`. Em `OnModelCreating`, defina TPH: `builder.HasDiscriminator<string>(\"transaction_type\")`. Configure `RowVersion`/concurrency tokens. Implante `IUnitOfWork` encapsulando `SaveChangesAsync`. Crie migrações com `dotnet ef migrations add Initial --project Infra.Database`. Pseudo:\n```\nprotected override void OnModelCreating(ModelBuilder modelBuilder) {\n  modelBuilder.Entity<Transaction>()\n    .HasDiscriminator<string>(\"transaction_type\")\n    .HasValue<PixTransaction>(\"pix\");\n}\n```\nInclua seeds opcionais com clients/contas mock.",
@@ -234,7 +234,7 @@
         "updatedAt": "2025-12-03T14:14:08.123Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implementar Outbox/Inbox e dispatcher confiável no banco",
         "description": "Expandir o `MyNewLittleBankContext` e serviços existentes em `Infra.Database` para suportar tabelas de Outbox/Inbox, persistir eventos dentro da UnitOfWork e despachar mensagens para RabbitMQ com entrega exatamente-uma-vez sem reintroduzir os avisos CA1819/CA1724/CA1062/CA2007 já sanados; garantir que Domain.Tests e Infra.Database.Tests continuem limpos.",
         "status": "done",
@@ -315,7 +315,7 @@
         "updatedAt": "2025-12-03T21:43:51.568Z"
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Criar infraestrutura RabbitMQ (connection factory, publisher, consumer) com retries/DLQ",
         "description": "Desenvolver `Infra.Message` responsável por conexões duráveis, publicação confirmada e consumo com controle de erros.",
         "details": "Implemente `RabbitConnectionFactory` usando `ConnectionFactory` configurada com TLS e credenciais via `IOptions<RabbitOptions>`. `PublisherService` deve usar `IModel.ConfirmSelect()`, publicar com `IBasicProperties` contendo `MessageId`, `traceparent`, `ContentType`. `ConsumerService<T>` herda de `BackgroundService`, usa `BasicQos` para prefetch, `BasicConsume` com manual ack. Configure exchanges/queues via `IRabbitTopologyBootstrapper` definindo TTL e DLQ: `args[\"x-dead-letter-exchange\"] = \"dlx.transactions\"`. Retentativas: mover para fila de atraso com headers `x-death` e contagem limitada antes de DLQ. Pseudo:\n```\n_channel.BasicPublish(exchange, routingKey, true, props, body);\n_channel.WaitForConfirmsOrDie();\n```\nDocumentar convenções de nomenclatura.",
@@ -394,7 +394,7 @@
         "updatedAt": "2025-12-03T21:48:24.515Z"
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Implementar UseCases de processamento de transações",
         "description": "Codificar casos de uso (ex.: ProcessPixTransaction) que coordenam domínio, UoW e mensagens de saída.",
         "details": "Crie `ProcessTransactionsHandler` com métodos específicos por tipo. Cada método deve:\n1. Resolver `BankAccount` origem/destino via repositórios.\n2. Invocar regras de domínio (`Debit/Credit`).\n3. Persistir via UnitOfWork.\n4. Registrar eventos em Outbox (ex.: `TransactionProcessedEvent`).\nPseudo:\n```\npublic async Task Handle(PixTransactionDto dto) {\n  await using var uow = _uowFactory.Create();\n  var account = await _accounts.GetAsync(dto.AccountId);\n  account.Debit(dto.Amount);\n  await uow.SaveChangesAsync(cancellationToken);\n}\n```\nSem AutoMapper: converta DTO->entidade manualmente. Implementar validações (saldo, limites, status).",
@@ -475,14 +475,14 @@
         "updatedAt": "2025-12-05T00:04:40.233Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Desenvolver serviços consumidores Pix/Money/Card e publisher de heartbeat",
         "description": "Criar workers hospedados (BackgroundService) que utilizam `Infra.Message` e `UseCases` para processar filas dedicadas e manter monitoramento.",
         "details": "Para cada serviço em `Services/*`, configure `Host.CreateApplicationBuilder`, registre DbContext, UseCases e Consumer. `PixTransactionReceiver : RabbitConsumerService<PixTransactionDto>` decodifica payload com `System.Text.Json` source-generated context. Utilize `CancellationToken` para shutdown gracioso e `ValueTask` nos handlers críticos. Heartbeat: `HeartbeatPublisher` publica mensagem `service:status` a cada intervalo, `HeartbeatConsumer` atualiza `ServiceStatus` em cache/DB. Pseudo:\n```\nprotected override async Task HandleMessage(byte[] body) {\n  var dto = PixTransactionContext.Deserialize(body);\n  await _processPix.Handle(dto);\n}\n```\nConfigurar `appsettings` por serviço e arquivos Docker multi-stage.",
         "testStrategy": "Testes end-to-end publicando mensagens via Mock.Transactions e observando processamento independente entre filas; validar que parada de um worker não impacta os demais.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -546,10 +546,11 @@
         ],
         "complexity": 8,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Criar projetos `Services/Pix`, `Services/Money`, `Services/Card` (nenhum existe hoje) que inicializam `Host.CreateApplicationBuilder`, registram DbContext/Infra.Message/UseCases e adicionam consumidores específicos herdando do `RabbitConsumerService<T>`. Implementar receivers usando `System.Text.Json` source-generated, lidar com CancellationToken/logs e criar `HeartbeatPublisher/Consumer`. Completar com configs appsettings, health checks e Dockerfiles para cada worker."
+        "expansionPrompt": "Criar projetos `Services/Pix`, `Services/Money`, `Services/Card` (nenhum existe hoje) que inicializam `Host.CreateApplicationBuilder`, registram DbContext/Infra.Message/UseCases e adicionam consumidores específicos herdando do `RabbitConsumerService<T>`. Implementar receivers usando `System.Text.Json` source-generated, lidar com CancellationToken/logs e criar `HeartbeatPublisher/Consumer`. Completar com configs appsettings, health checks e Dockerfiles para cada worker.",
+        "updatedAt": "2025-12-05T00:08:57.851Z"
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implementar Mock.Transactions e pipelines de publicação assíncrona",
         "description": "Construir worker gerador de transações para testes/demos, utilizando `Infra.Message` para publicar em exchanges corretas.",
         "details": "Crie `MockTransactionsWorker` que lê configurações (ex.: taxa de mensagens por segundo) e gera DTOs com `Bogus`. Suporta múltiplos tipos usando `FrozenDictionary<string, Func<TransactionDto>>` para reduzir alocação. Pseudo:\n```\nwhile(!stoppingToken.IsCancellationRequested){\n  var dto = _generators[type]();\n  await _publisher.PublishAsync(route, dto, headers);\n  await Task.Delay(_settings.Interval, stoppingToken);\n}\n```\nAdicionar CLI args para escolher intensidade e destino. Garantir tracing/MessageId aderentes ao pipeline.",
@@ -622,7 +623,7 @@
         "expansionPrompt": "Adicionar projeto `Mock.Transactions` inexistente, configurando opções (`MockTransactionsSettings`), host genérico e dependências de `Infra.Message`. Implementar fábrica de geradores de DTOs com Bogus + `FrozenDictionary`, criar `MockTransactionsWorker` que respeita taxa configurável e publica via `IPublisherService`, expor CLI/variáveis para intensidade/destino e instrumentar logs/tracing, validando via RabbitMQ local."
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Instrumentar observabilidade (OpenTelemetry, logs estruturados, health checks)",
         "description": "Adicionar tracing, métricas e logging estruturado em todos os serviços com propagação de contexto via RabbitMQ e health checks para infraestrutura.",
         "details": "Use `builder.Services.AddOpenTelemetry()` com `ResourceBuilder.CreateDefault().AddService(serviceName)`. Adicione `AddOtlpExporter` para traces/métricas, `AddPrometheusExporter` quando aplicável. No publisher/consumer, propague `traceparent`/`tracestate` nos headers e extraia antes do processamento. Configurar `Serilog` com sink OpenSearch (Elastic Common Schema) e redaction de PII. Health checks: `services.AddHealthChecks().AddNpgSql(conn).AddRabbitMQ()`. Expor endpoints `health/live` e `health/ready`. Pseudo:\n```\nusing var activity = _activitySource.StartActivity(\"Process Pix\");\nactivity?.SetTag(\"transaction.id\", dto.Id);\n```\n",
@@ -696,7 +697,7 @@
         "expansionPrompt": "Projetar módulo compartilhado (ex.: `Shared/Observability`) dado que hoje não existe nenhuma configuração OTel/Serilog. Implementar extensões que registrem `AddOpenTelemetry`, exporters OTLP/Prometheus e Serilog (OpenSearch + redaction). Aplicar essas extensões em todos os serviços/workers, garantir propagação de contexto nos publishers/consumidores e expor endpoints de health checks (live/ready) para web/hosts. Finalizar com cenário E2E validando traces, métricas e logs."
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Montar suíte de testes de integração e orquestração Docker/CI",
         "description": "Preparar docker-compose, Testcontainers e pipelines GitHub Actions garantindo validação automatizada.",
         "details": "Crie `docker-compose.yml` com serviços Postgres, RabbitMQ, OpenSearch, Jaeger/Prometheus e perfis para local/CI (healthchecks, recursos). Configure `Tests/Integration` usando `DotNet.Testcontainers` para subir Rabbit/Postgres dinamicamente, executando cenários: publicação→processamento→persistência, Outbox dispatcher, Inbox dedupe. Na CI (GitHub Actions), configure jobs: `build`, `unit-tests`, `integration-tests` (usa compose) e `docker-build` para cada serviço com multi-stage (AOT quando viável). Pseudo workflow:\n```\n- uses: actions/setup-dotnet@v4\n- run: dotnet test --filter Category=Integration\n- run: docker compose -f infra/compose.yml up -d\n```\nInclua `.devcontainer` com extensões recomendadas e scripts de bootstrap.",
@@ -774,15 +775,12 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-05T00:04:40.234Z",
+      "lastModified": "2025-12-05T00:08:57.851Z",
       "taskCount": 10,
       "completedCount": 6,
       "tags": [
         "master"
-      ],
-      "created": "2025-12-05T00:04:43.500Z",
-      "description": "Tasks for master context",
-      "updated": "2025-12-05T00:04:43.500Z"
+      ]
     }
   }
 }
