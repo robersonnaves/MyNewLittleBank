@@ -28,9 +28,9 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 
 **Stack Tecnológica**:
 
-- .NET 10 (LTS ou ST)
+- .NET 8 (LTS ou ST)
 - PostgreSQL
-- RabbitMQ (RabbitMQ.Client)
+- RabbitMQ (RabbitMQ.Client 7.x+)
 - Entity Framework Core
 - OpenTelemetry (OTLP)
 - Serilog (logs estruturados)
@@ -136,26 +136,51 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 
 ### Infra.Message
 
+#### RabbitMQ.Client 7.x - Migração e Práticas
+
+**IMPORTANTE**: A partir da versão 7.0 do RabbitMQ.Client, houve mudanças significativas:
+
+- **IModel → IChannel**: A interface `IModel` foi renomeada para `IChannel` para alinhar com outros clientes
+- **API Assíncrona**: Todos os métodos agora são assíncronos (ex: `BasicPublishAsync`, `BasicAckAsync`, `BasicConsumeAsync`)
+- **CreateChannelAsync**: `CreateModel()` foi substituído por `CreateChannelAsync(CreateChannelOptions?, CancellationToken)`
+- **Publisher Confirms**: Habilitados via `CreateChannelOptions.PublisherConfirms = true` ao criar o canal
+- **CancellationToken**: Métodos assíncronos aceitam `CancellationToken` para controle de cancelamento
+
+**Padrões Obrigatórios**:
+- ✅ Usar `IChannel` em vez de `IModel`
+- ✅ Usar `CreateChannelAsync()` com `CreateChannelOptions` para configurar publisher confirms
+- ✅ Usar métodos assíncronos: `BasicPublishAsync`, `BasicAckAsync`, `BasicConsumeAsync`, `BasicQosAsync`
+- ✅ Sempre usar `ConfigureAwait(false)` em chamadas assíncronas
+- ✅ Passar `CancellationToken` em todos os métodos assíncronos
+- ❌ NÃO usar `CreateModel()` (obsoleto)
+- ❌ NÃO usar métodos síncronos como `BasicPublish`, `BasicAck`, `WaitForConfirmsOrDie`
+
 #### RabbitMQ Connection Factory
 
 - `RabbitConnectionFactory` para gerenciar conexões
+- `CreateChannelAsync()` retorna `Task<IChannel>` com suporte a `CreateChannelOptions`
 - Reutilização de conexões e canais
 - Tratamento de reconexão automática
+- Configurar `PublisherConfirms = true` via `CreateChannelOptions` ao criar canais para publishers
 
 #### Publisher Service
 
-- `PublisherService` com publisher confirms
+- `PublisherService` com publisher confirms habilitados via `CreateChannelOptions`
+- Usar `BasicPublishAsync()` com `CancellationToken` para aguardar confirmações
 - Propagar `MessageId` e `traceparent` em headers
 - Serialização com `System.Text.Json`
 - Retries com filas de atraso (TTL)
 - Métricas de publicação disponíveis
+- Inicialização lazy do canal usando `Lazy<Task<IChannel>>` para evitar inicialização assíncrona no construtor
 
 #### Consumer Service
 
-- `ConsumerService` com ack manual
+- `ConsumerService` com ack manual usando `BasicAckAsync()`
+- Usar `BasicConsumeAsync()` para iniciar consumo
+- Usar `BasicQosAsync()` para configurar prefetch
 - Processamento idempotente usando Inbox
 - Extrair `MessageId` e `traceparent` dos headers
-- Retries com DLQ (Dead Letter Queue)
+- Retries com DLQ (Dead Letter Queue) usando `BasicPublishAsync()`
 - Usar `x-dead-letter-exchange` e `routing-key`
 
 #### Topologia RabbitMQ
@@ -371,6 +396,6 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 - Centralizar versões e propriedades em `Directory.Build.props`
 - Reduzir duplicação entre projetos
 - Versões pinadas de pacotes
-- Configurações globais: `net10.0`, `Nullable`, `ImplicitUsings`, `AnalysisLevel`
+- Configurações globais: `net8.0`, `Nullable`, `ImplicitUsings`, `AnalysisLevel`
 
 **Última atualização**: 2025-12-02

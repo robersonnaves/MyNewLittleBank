@@ -249,9 +249,10 @@
             "description": "Modelar e migrar as tabelas `outbox_messages` e `inbox_messages` com colunas exigidas no PRD.",
             "dependencies": [],
             "details": "Atualizar `MyNewLittleBankContext` para incluir DbSets Outbox/Inbox, criar entidades/Configurations em `src/Infra.Database/Configurations` seguindo o padrão e as `[SuppressMessage]` já usados para CA1812/CA1819. Gerar migração PostgreSQL com colunas `message_id (PK UUID)`, `payload JSONB`, `occurred_on`, `sent_on/processed_on`, `status` com índices por status/data e políticas compatíveis com retenção.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Rodar `dotnet ef migrations add`/`update` apontando para Postgres local e validar esquema e índices; garantir ausência de novos avisos CA* nas classes adicionadas.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T21:43:02.419Z"
           },
           {
             "id": 2,
@@ -261,9 +262,10 @@
               1
             ],
             "details": "Estender `UnitOfWork` em `src/Infra.Database/UnitOfWork.cs` e os repositórios Ef para coletar eventos de domínio, convertê-los em `OutboxMessage` e salvá-los antes do commit usando o padrão `await using var tx = await _db.Database.BeginTransactionAsync(); ... await tx.CommitAsync();`. Respeitar contravariância de `IWriteRepository<in TEntity>` e validar argumentos conforme CA1062. Garantir `OccurredOn` e `Status=Pending`.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Criar testes (unitários/integrados) em `tests/Infra.Database.Tests` que disparem eventos, executem UoW e confirmem registros na tabela Outbox, mantendo os testes sem `ConfigureAwait` para atender xUnit1030.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T21:43:22.304Z"
           },
           {
             "id": 3,
@@ -274,9 +276,10 @@
               2
             ],
             "details": "Desenvolver `OutboxDispatcher` em `Infra.Database`/novo worker seguindo `BackgroundService`, lendo lotes com `FOR UPDATE SKIP LOCKED` via Npgsql, publicando com `IPublisherService` (Infra.Message) e marcando `SentOn`/`Status`. Adicionar retries, logs e métricas, parametrizando batch/intervalo via opções DI (usar helper `DatabaseServiceCollectionExtensions.AddDatabaseInfrastructure`). Respeitar CA2007 (usar ConfigureAwait(false) apenas fora de testes) e justificar qualquer SuppressMessage necessário.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Testes de integração que simulam exceções do publisher, interrompem o dispatcher e verificam reprocessamento posterior, monitorando mudanças de status e ausência de warnings em build.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T21:43:31.361Z"
           },
           {
             "id": 4,
@@ -286,9 +289,10 @@
               1
             ],
             "details": "Nos consumers RabbitMQ (Infra.Message), antes de executar a lógica recupere `MessageId` e consulte `inbox_messages`; se inexistente, abra transação, insira registro Received/Processed e só então aplique comando; abortar duplicatas subsequentes. Integrar com UnitOfWork e garantir validações de argumentos (CA1062) e nomenclatura alinhada aos testes existentes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Testes integrados consumindo a mesma mensagem duas vezes (pelo menos em `tests/Infra.Database.Tests`) para confirmar que apenas a primeira altera estado e que asserções permanecem livres de xUnit1030/CA1707.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T21:43:39.340Z"
           },
           {
             "id": 5,
@@ -299,15 +303,16 @@
               4
             ],
             "details": "Criar job/command que remove registros `Status=Sent/Processed` após janela configurável e limpa falhas expiradas, expondo configurações no appsettings usado pelo helper `AddDatabaseInfrastructure`. Instrumentar métricas/logs e documentar SuppressMessage necessários nas configurações. Escrever cenários end-to-end cobrindo Dispatcher interrompido e rotinas de limpeza em `Domain.Tests`/`Infra.Database.Tests` com nomenclatura compatível (sem CA1707).",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Executar `MSBUILDDISABLENODEREUSE=1 UseSharedCompilation=false dotnet test` para validar Domain.Tests e Infra.Database.Tests sem warnings, incluindo casos em que o dispatcher cai durante envio, reinicia e a limpeza garante integridade final.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-03T21:43:51.568Z"
           }
         ],
         "complexity": 9,
         "recommendedSubtasks": 5,
         "expansionPrompt": "Dentro do projeto Infra.Database (a ser criado), modele entidades Outbox/Inbox e respectivas tabelas/mapeamentos EF. Ajuste o UnitOfWork para persistir eventos de domínio no Outbox na mesma transação e crie `OutboxDispatcher` como BackgroundService que lê lotes com `FOR UPDATE SKIP LOCKED`, publica via `IPublisherService` e atualiza status/retentativa. Implemente lógica Inbox para consumidores consultarem/registrarem mensagens idempotentes e adicione rotinas de limpeza e testes de falha/retomada.",
-        "updatedAt": "2025-12-03T20:50:35.245Z"
+        "updatedAt": "2025-12-03T21:43:51.568Z"
       },
       {
         "id": 5,
@@ -317,7 +322,7 @@
         "testStrategy": "Criar testes de integração usando `Testcontainers` ou docker-compose, validando publisher confirms, múltiplos retries e redirecionamento para DLQ após limite; usar `WireMock`/`Bogus` para mensagens fictícias.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -385,7 +390,8 @@
         ],
         "complexity": 8,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Crie um projeto `Infra.Message` (não há referências a RabbitMQ fora do PRD) contendo contratos/opções (`RabbitOptions`), `RabbitConnectionFactory` com TLS/reconexão, `PublisherService` com `ConfirmSelect`/WaitForConfirms e `RabbitConsumerService<T>` com `BasicQos`, ack manual, retries, filas de atraso e DLQ. Acrescente `RabbitTopologyBootstrapper` para exchanges/filas com TTL/DLQ e documentação das convenções."
+        "expansionPrompt": "Crie um projeto `Infra.Message` (não há referências a RabbitMQ fora do PRD) contendo contratos/opções (`RabbitOptions`), `RabbitConnectionFactory` com TLS/reconexão, `PublisherService` com `ConfirmSelect`/WaitForConfirms e `RabbitConsumerService<T>` com `BasicQos`, ack manual, retries, filas de atraso e DLQ. Acrescente `RabbitTopologyBootstrapper` para exchanges/filas com TTL/DLQ e documentação das convenções.",
+        "updatedAt": "2025-12-03T21:48:24.515Z"
       },
       {
         "id": 6,
@@ -395,7 +401,7 @@
         "testStrategy": "Testes de unidade com repositórios fake para regras de negócio e testes de integração verificando atualização de saldo correto e gravação no Outbox.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -403,9 +409,10 @@
             "description": "Levantar quais repositórios, fábricas de UnitOfWork, serviços de Outbox e DTOs serão usados no caso de uso.",
             "dependencies": [],
             "details": "Revisar o PRD e o código existente para listar interfaces (ex.: IBankAccountRepository, ITransactionRepository, IUnitOfWorkFactory, IOutboxService) e os DTOs por tipo de transação, definindo também invariantes de saldo, status e limites que cada método deverá validar manualmente.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Revise com o time de domínio se todos os contratos necessários foram identificados antes de codificar.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-05T00:03:39.261Z"
           },
           {
             "id": 2,
@@ -415,9 +422,10 @@
               1
             ],
             "details": "Escrever a classe `ProcessTransactionsHandler`, validar argumentos, criar helpers para carregar contas e abrir o ciclo `await using var uow = _uowFactory.Create();`, mapear DTOs manualmente e expor `HandleAsync` que roteia para `ProcessPixTransaction`, `ProcessMoneyTransaction` ou `ProcessCardTransaction`, compartilhando lógica de logs e erros.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Criar testes unitários com dependências mockadas verificando instância correta, roteamento por tipo e abertura/fechamento do UoW.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-05T00:04:19.401Z"
           },
           {
             "id": 3,
@@ -427,9 +435,10 @@
               2
             ],
             "details": "Buscar conta origem/destino pelos repositórios, validar status, limites Pix e saldo antes de chamar `Debit`/`Credit`, mapear DTO para entidade `PixTransaction`, anexar ao contexto, registrar `TransactionProcessedEvent` no Outbox e confirmar via UoW com tratamento de exceções e logs.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Escrever testes unitários simulando repositórios fake para verificar débito correto, rejeição de saldo insuficiente e publicação do evento no Outbox fake.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-05T00:04:32.156Z"
           },
           {
             "id": 4,
@@ -439,9 +448,10 @@
               2
             ],
             "details": "Reutilizar helpers para buscar contas, validar limites diários, estado da conta e pertencimento ao mesmo banco quando necessário, criar entidade `MoneyTransaction`, aplicar `Debit`/`Credit`, persistir no repositório de transações e registrar evento na Outbox antes de confirmar o UoW.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Criar testes de integração leve usando repositórios em memória para assegurar atualização de saldo duplo, rollback em falha e registro do evento.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-05T00:04:40.233Z"
           },
           {
             "id": 5,
@@ -453,14 +463,16 @@
               4
             ],
             "details": "Resolver conta associada ao cartão, validar status do cartão, limites por transação e antifraude, criar `CardTransaction`, executar `Debit`, persistir via UoW e registrar `TransactionProcessedEvent` com payload adequado no Outbox garantindo idempotência e metadados (MessageId, traceparent).",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Adicionar testes cobrindo limites de cartão, verificação de evento gerado com payload correto e commit único do UoW/Outbox.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-05T00:04:05.260Z"
           }
         ],
         "complexity": 8,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Defina contratos necessários (repositories, UoW factory, serviços de Outbox) para `ProcessTransactionsHandler`, tomando como base que apenas o domínio cru existe hoje. Implementar classe base que roteia DTOs para métodos específicos, além dos fluxos `ProcessPixTransaction`, `ProcessMoneyTransaction` e `ProcessCardTransaction` realizando validações, debit/credit via entidades e registro no Outbox. Garanta testes unitários/integrados simulando repositórios e Outbox."
+        "expansionPrompt": "Defina contratos necessários (repositories, UoW factory, serviços de Outbox) para `ProcessTransactionsHandler`, tomando como base que apenas o domínio cru existe hoje. Implementar classe base que roteia DTOs para métodos específicos, além dos fluxos `ProcessPixTransaction`, `ProcessMoneyTransaction` e `ProcessCardTransaction` realizando validações, debit/credit via entidades e registro no Outbox. Garanta testes unitários/integrados simulando repositórios e Outbox.",
+        "updatedAt": "2025-12-05T00:04:40.233Z"
       },
       {
         "id": 7,
@@ -762,15 +774,15 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-03T20:50:35.246Z",
+      "lastModified": "2025-12-05T00:04:40.234Z",
       "taskCount": 10,
-      "completedCount": 4,
+      "completedCount": 6,
       "tags": [
         "master"
       ],
-      "created": "2025-12-03T21:08:02.837Z",
+      "created": "2025-12-05T00:04:43.500Z",
       "description": "Tasks for master context",
-      "updated": "2025-12-03T21:08:02.837Z"
+      "updated": "2025-12-05T00:04:43.500Z"
     }
   }
 }

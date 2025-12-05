@@ -35,6 +35,7 @@ public static class DatabaseServiceCollectionExtensions
         services.AddScoped(typeof(ISpecificationRepository<>), typeof(EfRepository<>));
         services.AddScoped<Func<MyNewLittleBankContext>>(provider => () => provider.GetRequiredService<MyNewLittleBankContext>());
         services.AddScoped<InboxMessageStore>();
+        services.AddScoped<IOutboxWriter, OutboxWriter>();
 
         return services;
     }
