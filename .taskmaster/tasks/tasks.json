@@ -482,7 +482,7 @@
         "testStrategy": "Testes end-to-end publicando mensagens via Mock.Transactions e observando processamento independente entre filas; validar que parada de um worker não impacta os demais.",
         "priority": "medium",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -490,7 +490,7 @@
             "description": "Revisar projetos `Infra.Message`, `Infra.Database` e `UseCases` para entender opções de configuração, contextos e services já implementados, preparando o plano de registro para cada worker.",
             "dependencies": [],
             "details": "Identificar classes como `RabbitConnectionFactory`, `RabbitConsumerService<T>`, `MyNewLittleBankContext` e handlers em `UseCases` para garantir que os serviços consumidores possam injetá-los corretamente via `Host.CreateApplicationBuilder`. Documentar quais opções (`RabbitOptions`, `DatabaseOptions`) precisam estar disponíveis e quais filas/exchanges cada worker utilizará.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Checklist/manual: validar que todas as dependências necessárias foram mapeadas e possuem configurações disponíveis antes de iniciar a codificação.",
             "parentId": "undefined"
           },
@@ -502,7 +502,7 @@
               1
             ],
             "details": "Cada projeto deve configurar DI adicionando `DbContext` com connection string do appsettings, registrar repositórios/UseCases necessários e adicionar o respectivo consumer como `HostedService`. Garantir suporte a `CancellationToken` no shutdown, logging configurado e validação de opções `IOptions<>`. Estruturar Program.cs minimalista com `await builder.Build().RunAsync();`.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Executar `dotnet run` localmente para cada serviço verificando startup e health endpoints (se configurados) sem conectar ao broker.",
             "parentId": "undefined"
           },
@@ -514,7 +514,7 @@
               2
             ],
             "details": "Criar DTO contexts (ex.: `PixTransactionContext`) para deserialização eficiente; sobrescrever `HandleMessage(ReadOnlyMemory<byte> body, CancellationToken ct)` retornando `ValueTask`, convertendo payload e invocando o handler correspondente. Configurar prefetch/queues via opções, tratar exceptions com retries e DLQ conforme `Infra.Message`. Garantir instrumentação mínima (logs, traceparent) e propagação de `CancellationToken`.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Testes locais simulando mensagens usando RabbitMQ container ou mocks: publicar mensagens nas filas e confirmar processamento/ack manual e tratamento de falhas (retry + DLQ).",
             "parentId": "undefined"
           },
@@ -526,7 +526,7 @@
               2
             ],
             "details": "Publisher deve usar `IPublisherService` para enviar mensagens `service:status` em intervalos configuráveis (options + timer), incluindo `traceparent`. Consumer deve herdar de `RabbitConsumerService<HeartbeatDto>`, atualizar `ServiceStatus` no banco ou cache e garantir idempotência via Inbox quando disponível. Ambos devem respeitar `CancellationToken`, suportar `ValueTask` e expor métricas/logs básicos.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Testes integrados simulando parada/retomada: verificar que publisher emite mensagens no intervalo e consumer persiste estados corretos; pode usar RabbitMQ local ou mocks para validar lógica.",
             "parentId": "undefined"
           },
@@ -539,7 +539,7 @@
               4
             ],
             "details": "Cada serviço deve possuir configuração própria apontando para fila/exchange correta, connection strings e valores de heartbeat. Dockerfiles multi-stage devem restaurar/buildar projetos, copiar configs e definir entrypoint. Atualizar `docker-compose` (se existir) para incluir os novos services. Realizar smoke tests executando containers e simulando cancelamento para confirmar encerramento ordenado.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Rodar `docker build`/`docker compose up` para todos os serviços e verificar logs, conexões ao RabbitMQ/Postgres e desligamento via SIGTERM sem mensagens perdidas.",
             "parentId": "undefined"
           }
@@ -547,7 +547,7 @@
         "complexity": 8,
         "recommendedSubtasks": 5,
         "expansionPrompt": "Criar projetos `Services/Pix`, `Services/Money`, `Services/Card` (nenhum existe hoje) que inicializam `Host.CreateApplicationBuilder`, registram DbContext/Infra.Message/UseCases e adicionam consumidores específicos herdando do `RabbitConsumerService<T>`. Implementar receivers usando `System.Text.Json` source-generated, lidar com CancellationToken/logs e criar `HeartbeatPublisher/Consumer`. Completar com configs appsettings, health checks e Dockerfiles para cada worker.",
-        "updatedAt": "2025-12-05T00:08:57.851Z"
+        "updatedAt": "2025-12-05T01:01:58.338Z"
       },
       {
         "id": "8",
@@ -557,7 +557,7 @@
         "testStrategy": "Rodar worker contra RabbitMQ local e validar que filas recebem mensagens válidas; medir throughput esperado e monitorar logs/ métricas.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -620,7 +620,8 @@
         ],
         "complexity": 7,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Adicionar projeto `Mock.Transactions` inexistente, configurando opções (`MockTransactionsSettings`), host genérico e dependências de `Infra.Message`. Implementar fábrica de geradores de DTOs com Bogus + `FrozenDictionary`, criar `MockTransactionsWorker` que respeita taxa configurável e publica via `IPublisherService`, expor CLI/variáveis para intensidade/destino e instrumentar logs/tracing, validando via RabbitMQ local."
+        "expansionPrompt": "Adicionar projeto `Mock.Transactions` inexistente, configurando opções (`MockTransactionsSettings`), host genérico e dependências de `Infra.Message`. Implementar fábrica de geradores de DTOs com Bogus + `FrozenDictionary`, criar `MockTransactionsWorker` que respeita taxa configurável e publica via `IPublisherService`, expor CLI/variáveis para intensidade/destino e instrumentar logs/tracing, validando via RabbitMQ local.",
+        "updatedAt": "2025-12-05T01:19:29.081Z"
       },
       {
         "id": "9",
@@ -775,9 +776,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-05T00:08:57.851Z",
+      "lastModified": "2025-12-05T01:19:29.082Z",
       "taskCount": 10,
-      "completedCount": 6,
+      "completedCount": 8,
       "tags": [
         "master"
       ]
