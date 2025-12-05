@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,6 +12,7 @@ using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Extensions.Logging;
 
+#pragma warning disable CA1716 // Identifiers should not match keywords
 namespace Shared.Observability;
 
 public static class ObservabilityExtensions
@@ -20,7 +22,11 @@ public static class ObservabilityExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddSingleton(new ActivitySource(serviceName));
+        // ActivitySource is managed by DI container, which will handle disposal
+#pragma warning disable CA2000 // Dispose objects before losing scope - managed by DI container
+        var activitySource = new ActivitySource(serviceName);
+        services.AddSingleton(activitySource);
+#pragma warning restore CA2000
 
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(serviceName: serviceName))
@@ -59,7 +65,7 @@ public static class ObservabilityExtensions
             .ReadFrom.Configuration(builder.Configuration)
             .Enrich.FromLogContext()
             .Enrich.WithProperty("service", serviceName)
-            .WriteTo.Console()
+            .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
             .CreateLogger();
 
         builder.Logging.ClearProviders();
