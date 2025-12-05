@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using System.Diagnostics;
 using System.Text;
+using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 
 namespace Infra.Message;
