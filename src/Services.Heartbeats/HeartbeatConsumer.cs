@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Domain.Interfaces;
 using Infra.Message;
 using Infra.Message.Interfaces;
@@ -19,8 +20,9 @@ public sealed class HeartbeatConsumer : RabbitConsumerService<HeartbeatDto>
     public HeartbeatConsumer(
         IRabbitConnectionFactory factory,
         IOptions<RabbitOptions> options,
-        ILogger<HeartbeatConsumer> logger)
-        : base(factory, options, logger)
+        ILogger<HeartbeatConsumer> logger,
+        ActivitySource activitySource)
+        : base(factory, options, logger, activitySource)
     {
         _logger = logger;
     }

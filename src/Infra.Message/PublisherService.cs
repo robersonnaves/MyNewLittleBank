@@ -3,7 +3,9 @@ using Infra.Message.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using System.Diagnostics;
 using System.Text;
+using OpenTelemetry.Context.Propagation;
 
 namespace Infra.Message;
 
@@ -51,6 +53,7 @@ public sealed class PublisherService : IMessagePublisher, IDisposable
             Type = messageType,
             MessageId = Guid.NewGuid().ToString("N")
         };
+        InjectPropagationContext(properties);
 
         try
         {
@@ -77,5 +80,15 @@ public sealed class PublisherService : IMessagePublisher, IDisposable
         }
 
         _factory.Dispose();
+    }
+
+    private static void InjectPropagationContext(BasicProperties properties)
+    {
+        properties.Headers ??= new Dictionary<string, object?>();
+
+        Propagators.DefaultTextMapPropagator.Inject(
+            new PropagationContext(Activity.Current?.Context ?? default, Baggage.Current),
+            properties.Headers,
+            static (headers, key, value) => headers[key] = Encoding.UTF8.GetBytes(value));
     }
 }

@@ -3,8 +3,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Mock.Transactions;
+using Shared.Observability;
 
 var builder = Host.CreateApplicationBuilder(args);
+const string serviceName = "mock.transactions";
+
+builder.AddSerilogLogging(serviceName);
+builder.Services.AddObservability(serviceName, builder.Configuration);
 
 builder.Configuration.AddCommandLine(args);
 

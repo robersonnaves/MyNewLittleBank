@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Domain.DTOs;
 using Domain.Interfaces;
@@ -24,8 +25,9 @@ public sealed class CardTransactionReceiver : RabbitConsumerService<CardTransact
         IRabbitConnectionFactory factory,
         IOptions<RabbitOptions> options,
         ILogger<CardTransactionReceiver> logger,
-        IProcessTransactionsHandler handler)
-        : base(factory, options, logger)
+        IProcessTransactionsHandler handler,
+        ActivitySource activitySource)
+        : base(factory, options, logger, activitySource)
     {
         ArgumentNullException.ThrowIfNull(handler);
         _handler = handler;

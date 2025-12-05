@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Text;
+using OpenTelemetry.Context.Propagation;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,22 +18,25 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
     private readonly IRabbitConnectionFactory _factory;
     private readonly RabbitOptions _options;
     private readonly ILogger _logger;
+    private readonly ActivitySource _activitySource;
     private readonly Action<ILogger, int, Exception?> _movedToDlq;
     private readonly Action<ILogger, int, Exception?> _requeuedForRetry;
     private IChannel? _channel;
     private CancellationToken _stoppingToken;
 
-    protected RabbitConsumerService(IRabbitConnectionFactory factory, IOptions<RabbitOptions> options, ILogger logger)
+    protected RabbitConsumerService(IRabbitConnectionFactory factory, IOptions<RabbitOptions> options, ILogger logger, ActivitySource activitySource)
     {
         ArgumentNullException.ThrowIfNull(factory);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(activitySource);
 
         RabbitOptions.Validate(options.Value);
 
         _factory = factory;
         _options = options.Value;
         _logger = logger;
+        _activitySource = activitySource;
         _movedToDlq = LoggerMessage.Define<int>(
             LogLevel.Error,
             new EventId(1, nameof(_movedToDlq)),
@@ -68,6 +74,12 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
                 await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
                 return;
             }
+
+            var parentContext = Propagators.DefaultTextMapPropagator.Extract(default, args.BasicProperties, ExtractTraceContextFromBasicProperties);
+            using var activity = _activitySource.StartActivity("rabbit.consume", ActivityKind.Consumer, parentContext.ActivityContext);
+            activity?.SetTag("messaging.system", "rabbitmq");
+            activity?.SetTag("messaging.destination", _options.Queue);
+            activity?.SetTag("messaging.rabbitmq.routing_key", _options.RoutingKey);
 
             await ProcessMessageAsync(message, args.BasicProperties, _stoppingToken).ConfigureAwait(false);
             await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
@@ -154,6 +166,26 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
         }
 
         return properties;
+    }
+
+    private static IEnumerable<string> ExtractTraceContextFromBasicProperties(IReadOnlyBasicProperties properties, string key)
+    {
+        if (properties.Headers is null)
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        if (!properties.Headers.TryGetValue(key, out var value) || value is null)
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        return value switch
+        {
+            byte[] bytes => new[] { Encoding.UTF8.GetString(bytes) },
+            string text => new[] { text },
+            _ => Enumerable.Empty<string>()
+        };
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
