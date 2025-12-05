@@ -14,6 +14,11 @@ public sealed class CardTransactionReceiver : RabbitConsumerService<CardTransact
 {
     private readonly IProcessTransactionsHandler _handler;
     private readonly ILogger<CardTransactionReceiver> _logger;
+    private static readonly Action<ILogger, string, Exception?> ProcessingFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(1, nameof(ProcessingFailed)),
+            "Card transaction processing failed with error {Error}");
 
     public CardTransactionReceiver(
         IRabbitConnectionFactory factory,
@@ -40,7 +45,7 @@ public sealed class CardTransactionReceiver : RabbitConsumerService<CardTransact
         var result = await _handler.HandleAsync(message, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
         {
-            _logger.LogWarning("Card transaction processing failed with error {Error}", result.Error);
+            ProcessingFailed(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
     }

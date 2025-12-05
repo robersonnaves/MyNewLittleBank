@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Domain.Common;
 using Domain.DTOs;
@@ -8,6 +9,7 @@ using Domain.ValueObjects;
 
 namespace UseCases.Tests;
 
+[SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Underscore-separated test naming improves readability of scenario/expectation.")]
 public sealed class ProcessTransactionsHandlerTests
 {
     [Fact]

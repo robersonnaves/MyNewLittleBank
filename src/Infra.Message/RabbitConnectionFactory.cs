@@ -7,6 +7,12 @@ namespace Infra.Message;
 
 public sealed class RabbitConnectionFactory : IRabbitConnectionFactory
 {
+    private static readonly Action<ILogger, string, int, Exception?> ConnectionOpened =
+        LoggerMessage.Define<string, int>(
+            LogLevel.Information,
+            new EventId(1, nameof(ConnectionOpened)),
+            "RabbitMQ connection opened to {Host}:{Port}");
+
     private readonly RabbitOptions _options;
     private readonly ILogger<RabbitConnectionFactory> _logger;
     private IConnection? _connection;
@@ -51,8 +57,8 @@ public sealed class RabbitConnectionFactory : IRabbitConnectionFactory
         }
 
         _connection = await factory.CreateConnectionAsync(cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("RabbitMQ connection opened to {Host}:{Port}", _options.HostName, _options.Port);
-        return _connection;
+        ConnectionOpened(_logger, _options.HostName, _options.Port, null);
+        return _connection!;
     }
 
     public IConnection CreateConnection()

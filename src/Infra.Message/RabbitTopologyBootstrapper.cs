@@ -42,7 +42,7 @@ public sealed class RabbitTopologyBootstrapper : IRabbitTopologyBootstrapper
         await channel.ExchangeDeclareAsync(_options.DeadLetterExchange, ExchangeType.Direct, durable: true, autoDelete: false, cancellationToken: cancellationToken).ConfigureAwait(false);
         await channel.ExchangeDeclareAsync(_options.DelayExchange, ExchangeType.Direct, durable: true, autoDelete: false, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        var queueArguments = new Dictionary<string, object>
+        var queueArguments = new Dictionary<string, object?>
         {
             ["x-dead-letter-exchange"] = _options.DeadLetterExchange,
             ["x-dead-letter-routing-key"] = _options.RoutingKey
@@ -51,7 +51,7 @@ public sealed class RabbitTopologyBootstrapper : IRabbitTopologyBootstrapper
         await channel.QueueDeclareAsync(_options.Queue, durable: true, exclusive: false, autoDelete: false, arguments: queueArguments, cancellationToken: cancellationToken).ConfigureAwait(false);
         await channel.QueueBindAsync(_options.Queue, _options.Exchange, routingKey: _options.RoutingKey, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        var delayArguments = new Dictionary<string, object>
+        var delayArguments = new Dictionary<string, object?>
         {
             ["x-dead-letter-exchange"] = _options.Exchange,
             ["x-dead-letter-routing-key"] = _options.RoutingKey,

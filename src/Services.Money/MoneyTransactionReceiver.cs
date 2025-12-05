@@ -14,6 +14,11 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
 {
     private readonly IProcessTransactionsHandler _handler;
     private readonly ILogger<MoneyTransactionReceiver> _logger;
+    private static readonly Action<ILogger, string, Exception?> ProcessingFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(1, nameof(ProcessingFailed)),
+            "Money transaction processing failed with error {Error}");
 
     public MoneyTransactionReceiver(
         IRabbitConnectionFactory factory,
@@ -40,7 +45,7 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
         var result = await _handler.HandleAsync(message, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
         {
-            _logger.LogWarning("Money transaction processing failed with error {Error}", result.Error);
+            ProcessingFailed(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
     }

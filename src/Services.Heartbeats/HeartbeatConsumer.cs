@@ -8,6 +8,12 @@ namespace Services.Heartbeats;
 
 public sealed class HeartbeatConsumer : RabbitConsumerService<HeartbeatDto>
 {
+    private static readonly Action<ILogger, string, DateTime, Exception?> HeartbeatReceived =
+        LoggerMessage.Define<string, DateTime>(
+            LogLevel.Information,
+            new EventId(1, nameof(HeartbeatReceived)),
+            "Heartbeat received from {Service} at {Timestamp}");
+
     private readonly ILogger<HeartbeatConsumer> _logger;
 
     public HeartbeatConsumer(
@@ -27,7 +33,8 @@ public sealed class HeartbeatConsumer : RabbitConsumerService<HeartbeatDto>
 
     protected override ValueTask ProcessMessageAsync(HeartbeatDto message, RabbitMQ.Client.IReadOnlyBasicProperties properties, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Heartbeat received from {Service} at {Timestamp}", message.ServiceName, message.TimestampUtc);
+        ArgumentNullException.ThrowIfNull(message);
+        HeartbeatReceived(_logger, message.ServiceName, message.TimestampUtc, null);
         return ValueTask.CompletedTask;
     }
 }

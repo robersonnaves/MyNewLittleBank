@@ -14,6 +14,11 @@ public sealed class PixTransactionReceiver : RabbitConsumerService<PixTransactio
 {
     private readonly IProcessTransactionsHandler _handler;
     private readonly ILogger<PixTransactionReceiver> _logger;
+    private static readonly Action<ILogger, string, Exception?> ProcessingFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(1, nameof(ProcessingFailed)),
+            "Pix transaction processing failed with error {Error}");
 
     public PixTransactionReceiver(
         IRabbitConnectionFactory factory,
@@ -40,7 +45,7 @@ public sealed class PixTransactionReceiver : RabbitConsumerService<PixTransactio
         var result = await _handler.HandleAsync(message, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
         {
-            _logger.LogWarning("Pix transaction processing failed with error {Error}", result.Error);
+            ProcessingFailed(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
     }

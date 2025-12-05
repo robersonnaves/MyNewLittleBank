@@ -26,19 +26,25 @@ public sealed class RabbitOptions
 
     public static void Validate(RabbitOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+
+        const string hostNameRequired = "HostName is required.";
+        const string exchangeRequired = "Exchange is required.";
+        const string queueRequired = "Queue is required.";
+
         if (string.IsNullOrWhiteSpace(options.HostName))
         {
-            throw new OptionsValidationException(nameof(RabbitOptions), typeof(RabbitOptions), new[] { "HostName is required." });
+            throw new OptionsValidationException(nameof(RabbitOptions), typeof(RabbitOptions), new[] { hostNameRequired });
         }
 
         if (string.IsNullOrWhiteSpace(options.Exchange))
         {
-            throw new OptionsValidationException(nameof(RabbitOptions), typeof(RabbitOptions), new[] { "Exchange is required." });
+            throw new OptionsValidationException(nameof(RabbitOptions), typeof(RabbitOptions), new[] { exchangeRequired });
         }
 
         if (string.IsNullOrWhiteSpace(options.Queue))
         {
-            throw new OptionsValidationException(nameof(RabbitOptions), typeof(RabbitOptions), new[] { "Queue is required." });
+            throw new OptionsValidationException(nameof(RabbitOptions), typeof(RabbitOptions), new[] { queueRequired });
         }
     }
 }

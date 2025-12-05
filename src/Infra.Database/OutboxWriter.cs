@@ -24,6 +24,6 @@ public sealed class OutboxWriter : IOutboxWriter
             throw new InvalidOperationException($"Unable to create outbox message: {messageResult.Error}");
         }
 
-        await _context.OutboxMessages.AddAsync(messageResult.Value, cancellationToken).ConfigureAwait(false);
+        await _context.OutboxMessages.AddAsync(messageResult.Value!, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -57,9 +57,11 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
             return Result.Failure(transactionResult.Error!);
         }
 
+        var transaction = transactionResult.Value ?? throw new InvalidOperationException("Transaction mapping returned null.");
+
         return await ProcessAsync(
-            transactionResult.Value,
-            (account, transaction) => account.Debit(transaction.Amount, transaction.Id),
+            transaction,
+            (account, mappedTransaction) => account.Debit(mappedTransaction.Amount, mappedTransaction.Id),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -73,9 +75,11 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
             return Result.Failure(transactionResult.Error!);
         }
 
+        var transaction = transactionResult.Value ?? throw new InvalidOperationException("Transaction mapping returned null.");
+
         return await ProcessAsync(
-            transactionResult.Value,
-            (account, transaction) => account.Credit(transaction.Amount, transaction.Id),
+            transaction,
+            (account, mappedTransaction) => account.Credit(mappedTransaction.Amount, mappedTransaction.Id),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -89,9 +93,11 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
             return Result.Failure(transactionResult.Error!);
         }
 
+        var transaction = transactionResult.Value ?? throw new InvalidOperationException("Transaction mapping returned null.");
+
         return await ProcessAsync(
-            transactionResult.Value,
-            (account, transaction) => account.Debit(transaction.Amount, transaction.Id),
+            transaction,
+            (account, mappedTransaction) => account.Debit(mappedTransaction.Amount, mappedTransaction.Id),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -139,7 +145,7 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
             .ListAsync(account => account.AccountNumber == accountNumber, cancellationToken)
             .ConfigureAwait(false);
 
-        return accounts.FirstOrDefault();
+        return accounts.Count > 0 ? accounts[0] : null;
     }
 
     private static string BuildOutboxPayload(Transaction transaction, Money balanceAfterOperation)

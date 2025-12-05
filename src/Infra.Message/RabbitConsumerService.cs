@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,6 +15,8 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
     private readonly IRabbitConnectionFactory _factory;
     private readonly RabbitOptions _options;
     private readonly ILogger _logger;
+    private readonly Action<ILogger, int, Exception?> _movedToDlq;
+    private readonly Action<ILogger, int, Exception?> _requeuedForRetry;
     private IChannel? _channel;
     private CancellationToken _stoppingToken;
 
@@ -27,6 +31,14 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
         _factory = factory;
         _options = options.Value;
         _logger = logger;
+        _movedToDlq = LoggerMessage.Define<int>(
+            LogLevel.Error,
+            new EventId(1, nameof(_movedToDlq)),
+            "Message moved to DLQ after {RetryCount} attempts");
+        _requeuedForRetry = LoggerMessage.Define<int>(
+            LogLevel.Warning,
+            new EventId(2, nameof(_requeuedForRetry)),
+            "Message requeued for retry attempt {RetryCount}");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,6 +53,7 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
         await _channel.BasicConsumeAsync(queue: _options.Queue, autoAck: false, consumer: consumer, cancellationToken: stoppingToken).ConfigureAwait(false);
     }
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Consumer must handle and route failures to retry/DLQ without crashing.")]
     private async Task OnReceivedAsync(object sender, BasicDeliverEventArgs args)
     {
         if (_channel is null)
@@ -73,12 +86,12 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
                     body: args.Body,
                     cancellationToken: CancellationToken.None).ConfigureAwait(false);
                 await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
-                _logger.LogError(ex, "Message moved to DLQ after {RetryCount} attempts", retryCount);
+                _movedToDlq(_logger, retryCount, ex);
                 return;
             }
 
             var retryProperties = CreatePropertiesFromReadOnly(args.BasicProperties);
-            retryProperties.Headers ??= new Dictionary<string, object>();
+            retryProperties.Headers ??= new Dictionary<string, object?>();
             retryProperties.Headers["x-retry-count"] = retryCount + 1;
 
             await _channel.BasicPublishAsync(
@@ -90,7 +103,7 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
                 cancellationToken: _stoppingToken).ConfigureAwait(false);
 
             await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
-            _logger.LogWarning(ex, "Message requeued for retry attempt {RetryCount}", retryCount + 1);
+            _requeuedForRetry(_logger, retryCount + 1, ex);
         }
     }
 
@@ -136,7 +149,8 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
 
         if (source.Headers is not null)
         {
-            properties.Headers = new Dictionary<string, object>(source.Headers);
+            properties.Headers = new Dictionary<string, object?>(
+                source.Headers.ToDictionary(pair => pair.Key, pair => pair.Value));
         }
 
         return properties;
