@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROFILE="${1:-ci}"
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-ENGINE="${CONTAINER_ENGINE:-docker}"
+ENGINE="${CONTAINER_ENGINE:-podman}"
 
 "${ROOT_DIR}/infra/scripts/bootstrap-compose.sh" "${PROFILE}"
 

@@ -4,7 +4,7 @@ name: mynewlittlebank
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     profiles: [local, ci]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -23,7 +23,7 @@ services:
       - bank-net
 
   rabbitmq:
-    image: rabbitmq:3.13-management
+    image: docker.io/library/rabbitmq:3.13-management
     profiles: [local, ci]
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
@@ -69,7 +69,7 @@ services:
       - bank-net
 
   jaeger:
-    image: jaegertracing/all-in-one:1.58
+    image: docker.io/jaegertracing/all-in-one:1.58
     profiles: [local, ci]
     ports:
       - "${JAEGER_UI_PORT:-16686}:16686"
@@ -84,7 +84,7 @@ services:
       - bank-net
 
   prometheus:
-    image: prom/prometheus:v2.54.1
+    image: docker.io/prom/prometheus:v2.54.1
     profiles: [local, ci]
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
