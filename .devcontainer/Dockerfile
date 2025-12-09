@@ -1,0 +1,5 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends docker.io docker-compose-plugin && \
+    rm -rf /var/lib/apt/lists/*

@@ -631,7 +631,7 @@
         "testStrategy": "Verificar traces ponta-a-ponta em Jaeger/Tempo, métricas em Prometheus (latência, retries), logs indexados no OpenSearch; usar `dotnet test` para health check unit tests simulando falhas de conexão.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -695,7 +695,8 @@
         ],
         "complexity": 7,
         "recommendedSubtasks": 5,
-        "expansionPrompt": "Projetar módulo compartilhado (ex.: `Shared/Observability`) dado que hoje não existe nenhuma configuração OTel/Serilog. Implementar extensões que registrem `AddOpenTelemetry`, exporters OTLP/Prometheus e Serilog (OpenSearch + redaction). Aplicar essas extensões em todos os serviços/workers, garantir propagação de contexto nos publishers/consumidores e expor endpoints de health checks (live/ready) para web/hosts. Finalizar com cenário E2E validando traces, métricas e logs."
+        "expansionPrompt": "Projetar módulo compartilhado (ex.: `Shared/Observability`) dado que hoje não existe nenhuma configuração OTel/Serilog. Implementar extensões que registrem `AddOpenTelemetry`, exporters OTLP/Prometheus e Serilog (OpenSearch + redaction). Aplicar essas extensões em todos os serviços/workers, garantir propagação de contexto nos publishers/consumidores e expor endpoints de health checks (live/ready) para web/hosts. Finalizar com cenário E2E validando traces, métricas e logs.",
+        "updatedAt": "2025-12-08T23:48:37.523Z"
       },
       {
         "id": 10,
@@ -776,15 +777,15 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-05T01:19:29.082Z",
+      "lastModified": "2025-12-08T23:48:37.524Z",
       "taskCount": 10,
-      "completedCount": 8,
+      "completedCount": 9,
       "tags": [
         "master"
       ],
-      "created": "2025-12-08T22:20:50.098Z",
+      "created": "2025-12-08T23:49:44.699Z",
       "description": "Tasks for master context",
-      "updated": "2025-12-08T22:20:50.098Z"
+      "updated": "2025-12-08T23:49:44.699Z"
     }
   }
 }
