@@ -15,3 +15,9 @@
 
 ### CI (GitHub Actions)
 - Workflow: `.github/workflows/ci.yml` com jobs `build`, `unit-tests`, `integration-tests` (compose + dotnet test) e `docker-build` (imagens dos serviços).
+
+
+### Para usuário root. Rodando o Podman no WSL
+export CONTAINER_ENGINE=podman
+export DOCKER_HOST=unix:///run/user/0/podman/podman.sock 
+dotnet test tests/Integration/MyNewLittleBank.Tests.Integration.csproj --filter "Category=Integration"

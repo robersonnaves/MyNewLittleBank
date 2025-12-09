@@ -62,13 +62,13 @@ public sealed class IntegrationInfrastructureFixture : IAsyncLifetime
         var engine = Environment.GetEnvironmentVariable("CONTAINER_ENGINE");
         if (string.Equals(engine, "podman", StringComparison.OrdinalIgnoreCase))
         {
-            TestcontainersSettings.ResourceReaperEnabled = false;
+            Environment.SetEnvironmentVariable("TESTCONTAINERS_RYUK_DISABLED", "true");
         }
 
         var dockerHost = Environment.GetEnvironmentVariable("DOCKER_HOST");
         if (!string.IsNullOrWhiteSpace(dockerHost))
         {
-            TestcontainersSettings.DockerEndpoint = new Uri(dockerHost);
+            Environment.SetEnvironmentVariable("DOCKER_HOST", dockerHost);
         }
     }
 }
