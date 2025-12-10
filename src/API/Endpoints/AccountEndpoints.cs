@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using UseCases.Accounts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
+using API.Contracts.Requests;
 
 namespace API.Endpoints;
 
@@ -12,6 +13,14 @@ internal static class AccountEndpoints
     public static RouteGroupBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/accounts");
+
+        group.MapPost("/", CreateAccountAsync)
+            .WithName("CreateAccount")
+            .WithSummary("Create a new bank account for an existing client.")
+            .Produces<AccountResponse>(StatusCodes.Status201Created)
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
+            .Produces<ErrorResponse>(StatusCodes.Status404NotFound)
+            .Produces<ErrorResponse>(StatusCodes.Status409Conflict);
 
         group.MapGet("/{accountNumber}", GetAccountAsync)
             .WithName("GetAccount")
@@ -28,6 +37,33 @@ internal static class AccountEndpoints
             .Produces<ErrorResponse>(StatusCodes.Status404NotFound);
 
         return group;
+    }
+
+    private static async Task<Results<Created<AccountResponse>, NotFound<ErrorResponse>, Conflict<ErrorResponse>, BadRequest<ErrorResponse>>> CreateAccountAsync(
+        CreateAccountRequest request,
+        IOpenAccountHandler handler,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var result = await handler
+            .HandleAsync(
+                new OpenAccountCommand(request.ClientId, request.AccountNumber, request.InitialBalance),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.IsFailure)
+        {
+            return result.Error switch
+            {
+                "bank_account_already_exists" => TypedResults.Conflict(new ErrorResponse(result.Error)),
+                "client_not_found" => TypedResults.NotFound(new ErrorResponse(result.Error)),
+                _ => TypedResults.BadRequest(new ErrorResponse(result.Error!))
+            };
+        }
+
+        var response = AccountResponse.FromDomain(result.Value!);
+        return TypedResults.Created($"/accounts/{response.AccountNumber}", response);
     }
 
     private static async Task<Results<Ok<AccountResponse>, NotFound<ErrorResponse>, BadRequest<ErrorResponse>>> GetAccountAsync(

@@ -141,6 +141,8 @@ services:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
       - RabbitMQ__Password=guest
+      - MockTransactions__ApiBaseUrl=http://api:8080
+      - MockTransactions__Seed__Enabled=true
     restart: on-failure
     networks:
       - bank-net

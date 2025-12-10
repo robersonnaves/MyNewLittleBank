@@ -44,9 +44,12 @@ internal sealed class BankAccountConfiguration : IEntityTypeConfiguration<BankAc
         builder.Property(account => account.OpenedAt)
             .HasColumnType("timestamp with time zone");
 
-        builder.Property(account => account.RowVersion)
+        builder.Property(account => account.Xmin)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
             .IsRowVersion()
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .ValueGeneratedOnAddOrUpdate();
 
         builder.HasAlternateKey(account => account.AccountNumber);
         builder.HasIndex(account => account.AccountNumber).IsUnique();

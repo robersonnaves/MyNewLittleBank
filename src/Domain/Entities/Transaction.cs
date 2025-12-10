@@ -21,8 +21,7 @@ public abstract class Transaction
     public TransactionStatus Status { get; private set; }
     public DateTime OccurredOn { get; private set; }
 
-    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "EF Core concurrency token requires byte[] for row version.")]
-    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+    public uint Xmin { get; private set; }
 
     public Transaction ChangeStatus(TransactionStatus status)
     {

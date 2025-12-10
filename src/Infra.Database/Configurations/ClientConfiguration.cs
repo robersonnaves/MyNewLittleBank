@@ -42,9 +42,12 @@ internal sealed class ClientConfiguration : IEntityTypeConfiguration<Client>
             .IsRequired()
             .HasMaxLength(32);
 
-        builder.Property(c => c.RowVersion)
+        builder.Property(c => c.Xmin)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
             .IsRowVersion()
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .ValueGeneratedOnAddOrUpdate();
 
         builder.HasIndex(c => c.Cpf).IsUnique();
 

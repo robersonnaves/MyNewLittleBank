@@ -8,6 +8,7 @@ using OpenTelemetry.Metrics;
 using Mock.Transactions;
 using Shared.Health;
 using Shared.Observability;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 const string serviceName = "mock.transactions";
@@ -23,9 +24,22 @@ builder.Services
     .Bind(builder.Configuration.GetSection("MockTransactions"))
     .Validate(settings => settings.MessagesPerSecond >= 0, "MessagesPerSecond must be non-negative.")
     .Validate(settings => !string.IsNullOrWhiteSpace(settings.TransactionType), "TransactionType is required.")
+    .Validate(settings => !string.IsNullOrWhiteSpace(settings.ApiBaseUrl), "ApiBaseUrl is required.")
+    .Validate(settings => !settings.Seed.Enabled || settings.Seed.Clients > 0, "Seed.Clients must be positive when seed is enabled.")
+    .Validate(settings => !settings.Seed.Enabled || settings.Seed.AccountsPerClient > 0, "Seed.AccountsPerClient must be positive when seed is enabled.")
+    .Validate(settings => settings.Seed.InitialBalance >= 0, "Seed.InitialBalance must be non-negative.")
     .ValidateOnStart();
 
+builder.Services.AddSingleton<SeededAccountProvider>();
 builder.Services.AddSingleton<TransactionDtoGeneratorFactory>();
+builder.Services.AddHttpClient<ApiSeedService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<MockTransactionsSettings>>().Value;
+    if (!string.IsNullOrWhiteSpace(options.ApiBaseUrl))
+    {
+        client.BaseAddress = new Uri(options.ApiBaseUrl);
+    }
+});
 builder.Services.AddRabbitMessaging(builder.Configuration);
 builder.Services.AddHostedService<MockTransactionsWorker>();
 

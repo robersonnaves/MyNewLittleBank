@@ -22,8 +22,7 @@ public sealed class BankAccount
     public DateTime OpenedAt { get; }
     public IReadOnlyCollection<TransactionId> Transactions => _transactions.AsReadOnly();
 
-    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "EF Core concurrency token requires byte[] for row version.")]
-    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+    public uint Xmin { get; private set; }
 
     public static Result<BankAccount> Open(ClientId clientId, AccountNumber accountNumber, Money initialBalance)
     {

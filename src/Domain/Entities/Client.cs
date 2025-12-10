@@ -22,8 +22,7 @@ public sealed class Client
     public string MobileNumber { get; private set; }
     public IReadOnlyCollection<BankAccount> BankAccounts => _bankAccounts.AsReadOnly();
 
-    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "EF Core concurrency token requires byte[] for row version.")]
-    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+    public uint Xmin { get; private set; }
 
     public static Result<Client> Create(ClientId id, Cpf cpf, string name, string email, string mobileNumber)
     {

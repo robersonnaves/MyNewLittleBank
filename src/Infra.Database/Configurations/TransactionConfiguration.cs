@@ -55,9 +55,12 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         builder.Property(transaction => transaction.OccurredOn)
             .HasColumnType("timestamp with time zone");
 
-        builder.Property(transaction => transaction.RowVersion)
+        builder.Property(transaction => transaction.Xmin)
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
             .IsRowVersion()
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .ValueGeneratedOnAddOrUpdate();
 
         builder.HasDiscriminator<string>("transaction_type")
             .HasValue<PixTransaction>("pix")

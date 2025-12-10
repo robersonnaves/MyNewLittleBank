@@ -46,6 +46,8 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddScoped<ICreateClientHandler, CreateClientHandler>();
 builder.Services.AddScoped<IGetClientHandler, GetClientHandler>();
+builder.Services.AddScoped<IGetClientByCpfHandler, GetClientByCpfHandler>();
+builder.Services.AddScoped<IOpenAccountHandler, OpenAccountHandler>();
 builder.Services.AddScoped<IGetAccountHandler, GetAccountHandler>();
 builder.Services.AddScoped<IGetAccountBalanceHandler, GetAccountBalanceHandler>();
 

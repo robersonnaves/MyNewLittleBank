@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Builder;
 using UseCases.Clients;
 using Microsoft.AspNetCore.Http;
+using System.Diagnostics.CodeAnalysis;
 
 namespace API.Endpoints;
 
@@ -29,6 +30,13 @@ internal static class ClientEndpoints
             .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
             .Produces<ErrorResponse>(StatusCodes.Status404NotFound);
 
+        group.MapGet("/cpf/{cpf}", GetClientByCpfAsync)
+            .WithName("GetClientByCpf")
+            .WithSummary("Retrieve a client by CPF.")
+            .Produces<ClientResponse>(StatusCodes.Status200OK)
+            .Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
+            .Produces<ErrorResponse>(StatusCodes.Status404NotFound);
+
         return group;
     }
 
@@ -39,11 +47,9 @@ internal static class ClientEndpoints
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var result = await handler
-            .HandleAsync(
-                new CreateClientCommand(request.Cpf, request.Name, request.Email, request.MobileNumber),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var result = await handler.HandleAsync(
+            new CreateClientCommand(request.Cpf, request.Name, request.Email, request.MobileNumber),
+            cancellationToken).ConfigureAwait(false);
 
         if (result.IsFailure)
         {
@@ -77,5 +83,34 @@ internal static class ClientEndpoints
         }
 
         return TypedResults.Ok(ClientResponse.FromDomain(result.Value!));
+    }
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Mapping failures are converted to bad request responses for HTTP clients.")]
+    private static async Task<Results<Ok<ClientResponse>, NotFound<ErrorResponse>, BadRequest<ErrorResponse>>> GetClientByCpfAsync(
+        string cpf,
+        IGetClientByCpfHandler handler,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await handler
+                .HandleAsync(new GetClientByCpfQuery(cpf), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (result.IsFailure)
+            {
+                return result.Error switch
+                {
+                    "client_not_found" => TypedResults.NotFound(new ErrorResponse(result.Error)),
+                    _ => TypedResults.BadRequest(new ErrorResponse(result.Error!))
+                };
+            }
+
+            return TypedResults.Ok(ClientResponse.FromDomain(result.Value!));
+        }
+        catch (Exception)
+        {
+            return TypedResults.BadRequest(new ErrorResponse("client_lookup_failed"));
+        }
     }
 }

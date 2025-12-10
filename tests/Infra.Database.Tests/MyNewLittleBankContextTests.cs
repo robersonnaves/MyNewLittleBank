@@ -69,7 +69,8 @@ public sealed class MyNewLittleBankContextTests
         var persisted = await context.Transactions.OfType<PixTransaction>().SingleAsync();
         persisted.Status.Should().Be(TransactionStatus.Pending);
         persisted.Amount.Value.Should().Be(amount.Value);
-        persisted.RowVersion.Should().NotBeNull();
+        // Note: InMemory database doesn't support xmin system column, so Xmin will be 0
+        // In real PostgreSQL, xmin will contain the transaction ID
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public sealed class MyNewLittleBankContextTests
         var discriminatorProperty = entityType!.FindDiscriminatorProperty();
         discriminatorProperty.Should().NotBeNull();
         discriminatorProperty!.Name.Should().Be("transaction_type");
-        entityType.FindProperty(nameof(Transaction.RowVersion))!.IsConcurrencyToken.Should().BeTrue();
+        entityType.FindProperty(nameof(Transaction.Xmin))!.IsConcurrencyToken.Should().BeTrue();
     }
 
     [Fact]
