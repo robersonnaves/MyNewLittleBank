@@ -1,0 +1,58 @@
+#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+    Start all MyNewLittleBank services (infrastructure and application)
+.DESCRIPTION
+    Starts all services via docker-compose with optional Mock.Transactions control
+.PARAMETER MockTransactionsEnabled
+    Whether to run Mock.Transactions. Default: true
+.EXAMPLE
+    .\start-all.ps1
+    .\start-all.ps1 -MockTransactionsEnabled $false
+    $env:MOCK_TRANSACTIONS_ENABLED='false'; .\start-all.ps1
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter()]
+    [bool]$MockTransactionsEnabled = $(
+        if ($env:MOCK_TRANSACTIONS_ENABLED -eq 'false') { $false } else { $true }
+    )
+)
+
+$ErrorActionPreference = 'Stop'
+
+$ScriptDir = Split-Path -Parent $PSCommandPath
+$ComposeFile = Join-Path $ScriptDir '..\docker-compose.yml'
+$Engine = if ($env:CONTAINER_ENGINE) { $env:CONTAINER_ENGINE } else { 'podman' }
+$ProjectName = 'mynewlittlebank'
+
+# Docker-compose handles all process management
+
+try {
+    Write-Host "Starting all services..." -ForegroundColor Cyan
+    
+    if ($MockTransactionsEnabled) {
+        Write-Host "Mock.Transactions enabled - starting via docker-compose" -ForegroundColor Green
+        & $Engine compose -f $ComposeFile -p $ProjectName --profile local up -d --build
+    } else {
+        Write-Host "Mock.Transactions disabled - scaling to 0" -ForegroundColor Yellow
+        & $Engine compose -f $ComposeFile -p $ProjectName --profile local up -d --build --scale mock-transactions=0
+    }
+    
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to start services"
+    }
+
+    Write-Host "Waiting for services to be ready..." -ForegroundColor Cyan
+    Start-Sleep -Seconds 5
+
+    Write-Host "`nAll services started." -ForegroundColor Green
+    Write-Host "Mock.Transactions status: $(if ($MockTransactionsEnabled) { 'ENABLED (running in compose)' } else { 'DISABLED' })" -ForegroundColor Cyan
+    
+    Write-Host "`nService status:" -ForegroundColor Cyan
+    & $Engine compose -f $ComposeFile -p $ProjectName --profile local ps
+} catch {
+    Write-Host "`nError: $_" -ForegroundColor Red
+    exit 1
+}

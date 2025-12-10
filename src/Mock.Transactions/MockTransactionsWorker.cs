@@ -57,6 +57,16 @@ public sealed class MockTransactionsWorker : BackgroundService
             }
 
             var dto = generator();
+            
+            // Validate DTO has valid transaction ID
+            var transactionId = dto.GetType().GetProperty("TransactionId")?.GetValue(dto) as Guid?;
+            if (transactionId == null || transactionId == Guid.Empty)
+            {
+                _logger.LogError("Generated transaction has empty or null TransactionId. Type: {Type}", settings.TransactionType);
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                continue;
+            }
+            
             var payload = JsonSerializer.Serialize(dto, SerializerOptions);
             var messageType = $"mock.{settings.TransactionType.ToUpperInvariant()}";
 

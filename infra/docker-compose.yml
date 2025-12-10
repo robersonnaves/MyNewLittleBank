@@ -1,5 +1,3 @@
-version: "3.9"
-
 name: mynewlittlebank
 
 services:
@@ -27,6 +25,7 @@ services:
     container_name: rabbitmq
     image: docker.io/library/rabbitmq:3.13-management
     profiles: [local, ci]
+    user: "999:999"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
@@ -105,6 +104,120 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - bank-net
+
+  api:
+    profiles: [local, ci]
+    build:
+      context: ../
+      dockerfile: src/API/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=S3gr3d0123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+      - Swagger__Enabled=true
+    restart: on-failure
+    ports:
+      - "5000:8080"
+    networks:
+      - bank-net
+
+  mock-transactions:
+    profiles: [local, ci]
+    build:
+      context: ../
+      dockerfile: src/Mock.Transactions/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    restart: on-failure
+    networks:
+      - bank-net
+
+  services-card:
+    profiles: [local, ci]
+    build:
+      context: ../
+      dockerfile: src/Services.Card/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=S3gr3d0123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    restart: on-failure
+    networks:
+      - bank-net
+
+  services-heartbeats:
+    profiles: [local, ci]
+    build:
+      context: ../
+      dockerfile: src/Services.Heartbeats/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=S3gr3d0123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    restart: on-failure
+    networks:
+      - bank-net
+
+  services-money:
+    profiles: [local, ci]
+    build:
+      context: ../
+      dockerfile: src/Services.Money/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=S3gr3d0123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    restart: on-failure
+    networks:
+      - bank-net
+
+  services-pix:
+    profiles: [local, ci]
+    build:
+      context: ../
+      dockerfile: src/Services.Pix/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=S3gr3d0123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    restart: on-failure
     networks:
       - bank-net
 
