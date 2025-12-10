@@ -4,6 +4,7 @@ name: mynewlittlebank
 
 services:
   postgres:
+    container_name: postgres
     image: docker.io/library/postgres:16-alpine
     profiles: [local, ci]
     environment:
@@ -23,6 +24,7 @@ services:
       - bank-net
 
   rabbitmq:
+    container_name: rabbitmq
     image: docker.io/library/rabbitmq:3.13-management
     profiles: [local, ci]
     environment:
@@ -42,6 +44,7 @@ services:
       - bank-net
 
   opensearch:
+    container_name: opensearch
     image: docker.io/opensearchproject/opensearch:2.15.0
     profiles: [local, ci]
     environment:
@@ -49,6 +52,7 @@ services:
       plugins.security.disabled: "true"
       bootstrap.memory_lock: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "S3gr3d0123"
     ulimits:
       memlock:
         soft: -1
@@ -69,6 +73,7 @@ services:
       - bank-net
 
   jaeger:
+    container_name: jaeger
     image: docker.io/jaegertracing/all-in-one:1.58
     profiles: [local, ci]
     ports:
@@ -84,6 +89,7 @@ services:
       - bank-net
 
   prometheus:
+    container_name: prometheus
     image: docker.io/prom/prometheus:v2.54.1
     profiles: [local, ci]
     command:

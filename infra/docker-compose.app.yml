@@ -7,11 +7,17 @@ services:
     build:
       context: ../
       dockerfile: src/API/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=postgres
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
       - RabbitMQ__Password=guest
+      - Swagger__Enabled=true
     restart: on-failure
     ports:
       - "5000:8080"
@@ -22,6 +28,9 @@ services:
     build:
       context: ../
       dockerfile: src/Mock.Transactions/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     environment:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
@@ -34,6 +43,11 @@ services:
     build:
       context: ../
       dockerfile: src/Services.Card/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=postgres
       - RabbitMQ__HostName=rabbitmq
@@ -47,6 +61,11 @@ services:
     build:
       context: ../
       dockerfile: src/Services.Heartbeats/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=postgres
       - RabbitMQ__HostName=rabbitmq
@@ -60,6 +79,11 @@ services:
     build:
       context: ../
       dockerfile: src/Services.Money/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=postgres
       - RabbitMQ__HostName=rabbitmq
@@ -73,6 +97,11 @@ services:
     build:
       context: ../
       dockerfile: src/Services.Pix/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=mynewlittlebank;Username=postgres;Password=postgres
       - RabbitMQ__HostName=rabbitmq
