@@ -42,7 +42,7 @@ services:
       - bank-net
 
   opensearch:
-    image: opensearchproject/opensearch:2.15.0
+    image: docker.io/opensearchproject/opensearch:2.15.0
     profiles: [local, ci]
     environment:
       discovery.type: single-node
