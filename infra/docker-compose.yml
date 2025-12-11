@@ -107,6 +107,23 @@ services:
     networks:
       - bank-net
 
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    profiles: [ local, ci ]
+    restart: on-failure
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - bank-net
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
   api:
     container_name: api
     profiles: [ local, ci ]
@@ -238,3 +255,4 @@ volumes:
   rabbitmq_data:
   opensearch_data:
   prometheus_data:
+  pgadmin_data:
