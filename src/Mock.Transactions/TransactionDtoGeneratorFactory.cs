@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using Bogus;
+using Bogus.DataSets;
 using Domain.DTOs;
 using Domain.Enums;
 
@@ -52,7 +53,7 @@ public sealed class TransactionDtoGeneratorFactory
                     ClientId: account.ClientId,
                     AccountNumber: account.AccountNumber,
                     Amount: faker.Random.Decimal(1m, 1000m),
-                    CardNumber: faker.Finance.CreditCardNumber(),
+                    CardNumber: faker.Finance.CreditCardNumber(CardType.Mastercard),
                     Status: TransactionStatus.Pending,
                     OccurredOn: DateTime.UtcNow);
             });
@@ -67,6 +68,8 @@ public sealed class TransactionDtoGeneratorFactory
 
     public bool TryGet(string transactionType, out Func<object>? generator) =>
         _generators.TryGetValue(transactionType, out generator);
+
+    public IEnumerable<string> AvailableTypes => _generators.Keys;
 
     private SeededAccount PickAccount()
     {

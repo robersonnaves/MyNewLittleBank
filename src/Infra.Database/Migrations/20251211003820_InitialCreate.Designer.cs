@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infra.Database.Migrations
 {
     [DbContext(typeof(MyNewLittleBankContext))]
-    [Migration("20251210215555_InitialCreate")]
+    [Migration("20251211003820_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -49,12 +49,11 @@ namespace Infra.Database.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("opened_at");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<uint>("Xmin")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("pk_bank_accounts");
@@ -102,12 +101,11 @@ namespace Infra.Database.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<uint>("Xmin")
                         .IsConcurrencyToken()
-                        .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("pk_clients");
@@ -143,18 +141,17 @@ namespace Infra.Database.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_on");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea")
-                        .HasColumnName("row_version");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("status");
+
+                    b.Property<uint>("Xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("transaction_type")
                         .IsRequired()

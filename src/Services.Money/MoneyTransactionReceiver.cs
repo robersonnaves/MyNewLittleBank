@@ -15,6 +15,12 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
 {
     private readonly IProcessTransactionsHandler _handler;
     private readonly ILogger<MoneyTransactionReceiver> _logger;
+    private readonly string _expectedRoutingKey;
+    private static readonly Action<ILogger, string, string, Exception?> IgnoredRoutingKey =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Warning,
+            new EventId(2, nameof(IgnoredRoutingKey)),
+            "Ignoring message for Money. RoutingKey={RoutingKey}, Expected={ExpectedRoutingKey}");
     private static readonly Action<ILogger, string, Exception?> ProcessingFailed =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
@@ -32,6 +38,7 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
         ArgumentNullException.ThrowIfNull(handler);
         _handler = handler;
         _logger = logger;
+        _expectedRoutingKey = options.Value.RoutingKey;
     }
 
     protected override bool TryDeserialize(ReadOnlyMemory<byte> body, out MoneyTransactionDto? message)
@@ -50,5 +57,16 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
             ProcessingFailed(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
+    }
+
+    protected override bool ShouldProcess(string routingKey, IReadOnlyBasicProperties properties)
+    {
+        if (string.Equals(routingKey, _expectedRoutingKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        IgnoredRoutingKey(_logger, routingKey, _expectedRoutingKey, null);
+        return false;
     }
 }

@@ -21,6 +21,7 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
     private readonly ActivitySource _activitySource;
     private readonly Action<ILogger, int, Exception?> _movedToDlq;
     private readonly Action<ILogger, int, Exception?> _requeuedForRetry;
+    private readonly Action<ILogger, string, string, Exception?> _ignoredMessage;
     private IChannel? _channel;
     private CancellationToken _stoppingToken;
 
@@ -45,6 +46,10 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
             LogLevel.Warning,
             new EventId(2, nameof(_requeuedForRetry)),
             "Message requeued for retry attempt {RetryCount}");
+        _ignoredMessage = LoggerMessage.Define<string, string>(
+            LogLevel.Warning,
+            new EventId(3, nameof(_ignoredMessage)),
+            "Message ignored for queue {Queue} with routing key {RoutingKey}");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,6 +74,13 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
 
         try
         {
+            if (!ShouldProcess(args.RoutingKey, args.BasicProperties))
+            {
+                _ignoredMessage(_logger, _options.Queue, args.RoutingKey, null);
+                await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
+                return;
+            }
+
             if (!TryDeserialize(args.Body, out var message) || message is null)
             {
                 await _channel.BasicAckAsync(args.DeliveryTag, multiple: false).ConfigureAwait(false);
@@ -192,4 +204,8 @@ public abstract class RabbitConsumerService<TMessage> : BackgroundService
     protected abstract bool TryDeserialize(ReadOnlyMemory<byte> body, out TMessage? message);
 
     protected abstract ValueTask ProcessMessageAsync(TMessage message, IReadOnlyBasicProperties properties, CancellationToken cancellationToken);
+
+    protected virtual bool ShouldProcess(string routingKey, IReadOnlyBasicProperties properties) => true;
+
+    protected RabbitOptions Options => _options;
 }

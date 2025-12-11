@@ -37,9 +37,13 @@ public sealed class ApiSeedService
             return Array.Empty<SeededAccount>();
         }
 
-        if (settings.Seed.Clients <= 0 || settings.Seed.AccountsPerClient <= 0)
+        if (!ValidateSeed(settings))
         {
-            _logger.LogError("Seed configuration invalid: Clients={Clients}, AccountsPerClient={AccountsPerClient}.", settings.Seed.Clients, settings.Seed.AccountsPerClient);
+            _logger.LogError(
+                "Seed configuration invalid: Clients={Clients}, MinAccountsPerClient={MinAccountsPerClient}, MaxAccountsPerClient={MaxAccountsPerClient}.",
+                settings.Seed.Clients,
+                settings.Seed.MinAccountsPerClient,
+                settings.Seed.MaxAccountsPerClient);
             return null;
         }
 
@@ -55,7 +59,8 @@ public sealed class ApiSeedService
                 return null;
             }
 
-            for (var accountIndex = 0; accountIndex < settings.Seed.AccountsPerClient; accountIndex++)
+            var accountsForClient = GetAccountsPerClient(settings.Seed);
+            for (var accountIndex = 0; accountIndex < accountsForClient; accountIndex++)
             {
                 var accountNumber = GenerateAccountNumber(clientIndex, accountIndex);
                 var account = await GetOrCreateAccountAsync(client.Id, accountNumber, settings.Seed.InitialBalance, settings.Seed.ReuseExisting, cancellationToken).ConfigureAwait(false);
@@ -76,6 +81,24 @@ public sealed class ApiSeedService
             seededAccounts.Count);
 
         return seededAccounts;
+    }
+
+    private static bool ValidateSeed(MockTransactionsSettings settings)
+    {
+        return settings.Seed.Clients == 10
+               && settings.Seed.MinAccountsPerClient >= 1
+               && settings.Seed.MaxAccountsPerClient >= settings.Seed.MinAccountsPerClient
+               && settings.Seed.MaxAccountsPerClient <= 3;
+    }
+
+    private static int GetAccountsPerClient(SeedSettings seedSettings)
+    {
+        if (seedSettings.MinAccountsPerClient == seedSettings.MaxAccountsPerClient)
+        {
+            return seedSettings.MinAccountsPerClient;
+        }
+
+        return Random.Shared.Next(seedSettings.MinAccountsPerClient, seedSettings.MaxAccountsPerClient + 1);
     }
 
     private void EnsureBaseAddress(MockTransactionsSettings settings)

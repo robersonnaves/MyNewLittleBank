@@ -22,26 +22,22 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IReadRepository<BankAccount> _bankAccountReader;
-    private readonly IWriteRepository<BankAccount> _bankAccountWriter;
     private readonly IWriteRepository<Transaction> _transactionWriter;
     private readonly IOutboxWriter _outboxWriter;
     private readonly IUnitOfWork _unitOfWork;
 
     public ProcessTransactionsHandler(
         IReadRepository<BankAccount> bankAccountReader,
-        IWriteRepository<BankAccount> bankAccountWriter,
         IWriteRepository<Transaction> transactionWriter,
         IOutboxWriter outboxWriter,
         IUnitOfWork unitOfWork)
     {
         ArgumentNullException.ThrowIfNull(bankAccountReader);
-        ArgumentNullException.ThrowIfNull(bankAccountWriter);
         ArgumentNullException.ThrowIfNull(transactionWriter);
         ArgumentNullException.ThrowIfNull(outboxWriter);
         ArgumentNullException.ThrowIfNull(unitOfWork);
 
         _bankAccountReader = bankAccountReader;
-        _bankAccountWriter = bankAccountWriter;
         _transactionWriter = transactionWriter;
         _outboxWriter = outboxWriter;
         _unitOfWork = unitOfWork;
@@ -130,7 +126,6 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
         transaction.ChangeStatus(TransactionStatus.Completed);
 
         await _transactionWriter.AddAsync(transaction, cancellationToken).ConfigureAwait(false);
-        _bankAccountWriter.Update(account);
 
         var payload = BuildOutboxPayload(transaction, operationResult.Value);
         await _outboxWriter.AddAsync(ProcessedMessageType, payload, cancellationToken).ConfigureAwait(false);

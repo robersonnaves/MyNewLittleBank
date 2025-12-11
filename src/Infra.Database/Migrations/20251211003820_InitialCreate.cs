@@ -20,7 +20,7 @@ namespace Infra.Database.Migrations
                     name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     email = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
                     mobile_number = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false)
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -66,7 +66,7 @@ namespace Infra.Database.Migrations
                     account_number = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     balance = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     opened_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false)
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -90,7 +90,7 @@ namespace Infra.Database.Migrations
                     amount = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     occurred_on = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    row_version = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false),
                     transaction_type = table.Column<string>(type: "character varying(13)", maxLength: 13, nullable: false),
                     card_number = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     origin_pix_key = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),

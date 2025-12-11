@@ -57,6 +57,7 @@ public sealed class MockTransactionsWorker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             var settings = _settings.CurrentValue;
+            var transactionType = settings.TransactionType;
 
             if (!_accountProvider.HasAccounts)
             {
@@ -74,9 +75,18 @@ public sealed class MockTransactionsWorker : BackgroundService
                 _accountProvider.SetAccounts(seeded);
             }
 
-            if (!_factory.TryGet(settings.TransactionType, out var generator) || generator is null)
+            if (string.Equals(transactionType, "all", StringComparison.OrdinalIgnoreCase))
             {
-                _typeNotRegistered(_logger, settings.TransactionType, null);
+                var types = _factory.AvailableTypes.ToList();
+                if (types.Count != 0)
+                {
+                    transactionType = types[Random.Shared.Next(types.Count)];
+                }
+            }
+
+            if (!_factory.TryGet(transactionType, out var generator) || generator is null)
+            {
+                _typeNotRegistered(_logger, transactionType, null);
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
                 continue;
             }
@@ -97,16 +107,19 @@ public sealed class MockTransactionsWorker : BackgroundService
             var transactionId = dto.GetType().GetProperty("TransactionId")?.GetValue(dto) as Guid?;
             if (transactionId == null || transactionId == Guid.Empty)
             {
-                _logger.LogError("Generated transaction has empty or null TransactionId. Type: {Type}", settings.TransactionType);
+                _logger.LogError("Generated transaction has empty or null TransactionId. Type: {Type}", transactionType);
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
                 continue;
             }
             
             var payload = JsonSerializer.Serialize(dto, SerializerOptions);
-            var messageType = $"mock.{settings.TransactionType.ToUpperInvariant()}";
+            var messageType = $"mock.{transactionType.ToUpperInvariant()}";
+            var routingKey = string.Equals(settings.TransactionType, "all", StringComparison.OrdinalIgnoreCase) 
+                ? $"{transactionType.ToLowerInvariant()}.transactions" 
+                : settings.RoutingKey;
 
             await _publisher.PublishAsync(messageType, payload, stoppingToken).ConfigureAwait(false);
-            _published(_logger, settings.TransactionType, settings.RoutingKey, null);
+            _published(_logger, transactionType, routingKey, null);
 
             await Task.Delay(CalculateDelay(settings), stoppingToken).ConfigureAwait(false);
         }

@@ -10,4 +10,4 @@
 - [x] 2.2 Configurar parâmetros (ex.: quantidade de clientes/contas, opção de desabilitar seed) e validar que a emissão de transações não ocorre se o seed falhar.
 
 ## 3. Validação
-- [ ] 3.1 Executar o `Mock.Transactions` contra a API local e verificar que as transações publicadas referenciam apenas entidades existentes.
+- [x] 3.1 Executar o `Mock.Transactions` contra a API local e verificar que as transações publicadas referenciam apenas entidades existentes.

@@ -4,7 +4,7 @@ services:
   postgres:
     container_name: postgres
     image: docker.io/library/postgres:16-alpine
-    profiles: [local, ci]
+    profiles: [ local, ci ]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -12,7 +12,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,7 +24,7 @@ services:
   rabbitmq:
     container_name: rabbitmq
     image: docker.io/library/rabbitmq:3.13-management
-    profiles: [local, ci]
+    profiles: [ local, ci ]
     user: "999:999"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
@@ -33,7 +33,7 @@ services:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_UI_PORT:-15672}:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -45,7 +45,7 @@ services:
   opensearch:
     container_name: opensearch
     image: docker.io/opensearchproject/opensearch:2.15.0
-    profiles: [local, ci]
+    profiles: [ local, ci ]
     environment:
       discovery.type: single-node
       plugins.security.disabled: "true"
@@ -62,7 +62,7 @@ services:
     ports:
       - "${OPENSEARCH_PORT:-9200}:9200"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9200 >/dev/null"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200 >/dev/null" ]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -74,13 +74,13 @@ services:
   jaeger:
     container_name: jaeger
     image: docker.io/jaegertracing/all-in-one:1.58
-    profiles: [local, ci]
+    profiles: [ local, ci ]
     ports:
       - "${JAEGER_UI_PORT:-16686}:16686"
       - "4317:4317"
       - "4318:4318"
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:16686"]
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost:16686" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -90,7 +90,7 @@ services:
   prometheus:
     container_name: prometheus
     image: docker.io/prom/prometheus:v2.54.1
-    profiles: [local, ci]
+    profiles: [ local, ci ]
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -100,7 +100,7 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:9090/-/ready"]
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost:9090/-/ready" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -108,7 +108,8 @@ services:
       - bank-net
 
   api:
-    profiles: [local, ci]
+    container_name: api
+    profiles: [ local, ci ]
     build:
       context: ../
       dockerfile: src/API/Dockerfile
@@ -130,7 +131,8 @@ services:
       - bank-net
 
   mock-transactions:
-    profiles: [local, ci]
+    container_name: mock-transactions
+    profiles: [ local, ci ]
     build:
       context: ../
       dockerfile: src/Mock.Transactions/Dockerfile
@@ -148,7 +150,8 @@ services:
       - bank-net
 
   services-card:
-    profiles: [local, ci]
+    container_name: services-card
+    profiles: [ local, ci ]
     build:
       context: ../
       dockerfile: src/Services.Card/Dockerfile
@@ -167,7 +170,8 @@ services:
       - bank-net
 
   services-heartbeats:
-    profiles: [local, ci]
+    container_name: services-heartbeats
+    profiles: [ local, ci ]
     build:
       context: ../
       dockerfile: src/Services.Heartbeats/Dockerfile
@@ -186,7 +190,8 @@ services:
       - bank-net
 
   services-money:
-    profiles: [local, ci]
+    container_name: services-money
+    profiles: [ local, ci ]
     build:
       context: ../
       dockerfile: src/Services.Money/Dockerfile
@@ -205,7 +210,8 @@ services:
       - bank-net
 
   services-pix:
-    profiles: [local, ci]
+    container_name: services-pix
+    profiles: [ local, ci ]
     build:
       context: ../
       dockerfile: src/Services.Pix/Dockerfile

@@ -25,8 +25,9 @@ builder.Services
     .Validate(settings => settings.MessagesPerSecond >= 0, "MessagesPerSecond must be non-negative.")
     .Validate(settings => !string.IsNullOrWhiteSpace(settings.TransactionType), "TransactionType is required.")
     .Validate(settings => !string.IsNullOrWhiteSpace(settings.ApiBaseUrl), "ApiBaseUrl is required.")
-    .Validate(settings => !settings.Seed.Enabled || settings.Seed.Clients > 0, "Seed.Clients must be positive when seed is enabled.")
-    .Validate(settings => !settings.Seed.Enabled || settings.Seed.AccountsPerClient > 0, "Seed.AccountsPerClient must be positive when seed is enabled.")
+    .Validate(settings => !settings.Seed.Enabled || settings.Seed.Clients == 10, "Seed.Clients must be exactly 10 when seed is enabled.")
+    .Validate(settings => !settings.Seed.Enabled || (settings.Seed.MinAccountsPerClient >= 1 && settings.Seed.MinAccountsPerClient <= settings.Seed.MaxAccountsPerClient), "Seed accounts per client min must be >= 1 and <= max when seed is enabled.")
+    .Validate(settings => !settings.Seed.Enabled || settings.Seed.MaxAccountsPerClient <= 3, "Seed accounts per client max must be <= 3 when seed is enabled.")
     .Validate(settings => settings.Seed.InitialBalance >= 0, "Seed.InitialBalance must be non-negative.")
     .ValidateOnStart();
 

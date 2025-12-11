@@ -20,7 +20,7 @@ public sealed class ProcessTransactionsHandlerTests
         var transactions = new FakeTransactionRepository();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(bankAccounts, transactions, outbox, uow);
 
         var dto = new PixTransactionDto(
             Guid.NewGuid(),
@@ -52,7 +52,7 @@ public sealed class ProcessTransactionsHandlerTests
         var transactions = new FakeTransactionRepository();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(bankAccounts, transactions, outbox, uow);
 
         var dto = new CardTransactionDto(
             Guid.NewGuid(),
@@ -79,7 +79,7 @@ public sealed class ProcessTransactionsHandlerTests
         var transactions = new FakeTransactionRepository();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(bankAccounts, transactions, outbox, uow);
 
         var dto = new MoneyTransactionDto(
             Guid.NewGuid(),
