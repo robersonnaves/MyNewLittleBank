@@ -20,7 +20,7 @@ public sealed class ProcessTransactionsHandlerTests
         var transactions = new FakeTransactionRepository();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
 
         var dto = new PixTransactionDto(
             Guid.NewGuid(),
@@ -41,6 +41,7 @@ public sealed class ProcessTransactionsHandlerTests
         outbox.Messages.Should().HaveCount(1);
         outbox.Messages.Single().MessageType.Should().Be("transaction.processed");
         ParseOutbox(outbox.Messages.Single().Payload).GetProperty("balanceAfterOperation").GetDecimal().Should().Be(100m);
+        bankAccounts.UpdateCalls.Should().Be(1);
         uow.SaveChangesCalls.Should().Be(1);
     }
 
@@ -52,7 +53,7 @@ public sealed class ProcessTransactionsHandlerTests
         var transactions = new FakeTransactionRepository();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
 
         var dto = new CardTransactionDto(
             Guid.NewGuid(),
@@ -79,7 +80,7 @@ public sealed class ProcessTransactionsHandlerTests
         var transactions = new FakeTransactionRepository();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
 
         var dto = new MoneyTransactionDto(
             Guid.NewGuid(),
@@ -114,6 +115,7 @@ public sealed class ProcessTransactionsHandlerTests
         IWriteRepository<BankAccount>
     {
         private readonly List<BankAccount> _items;
+        public int UpdateCalls { get; private set; }
 
         public FakeBankAccountRepository(params BankAccount[] items)
         {
@@ -157,6 +159,7 @@ public sealed class ProcessTransactionsHandlerTests
             {
                 _items[index] = entity;
             }
+            UpdateCalls++;
         }
     }
 

@@ -109,11 +109,11 @@ services:
 
   pgadmin:
     container_name: pgadmin
-    image: dpage/pgadmin4
+    image: docker.io/dpage/pgadmin4
     profiles: [ local, ci ]
     restart: on-failure
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_EMAIL: admin@robdevs.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"

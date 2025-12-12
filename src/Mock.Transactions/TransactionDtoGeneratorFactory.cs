@@ -19,14 +19,16 @@ public sealed class TransactionDtoGeneratorFactory
         var pixFaker = new Faker<PixTransactionDto>()
             .CustomInstantiator(faker =>
             {
-                var account = PickAccount();
+                var origin = PickPixKey();
+                var destination = PickPixKey(origin.PixKey);
+
                 return new PixTransactionDto(
                     TransactionId: Guid.NewGuid(),
-                    ClientId: account.ClientId,
-                    AccountNumber: account.AccountNumber,
+                    ClientId: origin.Account.ClientId,
+                    AccountNumber: origin.Account.AccountNumber,
                     Amount: faker.Random.Decimal(1m, 2000m),
-                    OriginPixKey: $"{faker.Internet.Email()}",
-                    DestinationPixKey: $"{faker.Internet.Email()}",
+                    OriginPixKey: origin.PixKey,
+                    DestinationPixKey: destination.PixKey,
                     Status: TransactionStatus.Pending,
                     OccurredOn: DateTime.UtcNow);
             });
@@ -48,12 +50,15 @@ public sealed class TransactionDtoGeneratorFactory
             .CustomInstantiator(faker =>
             {
                 var account = PickAccount();
+                
+                var cardNumber = GenerateCardNumber(faker);
+
                 return new CardTransactionDto(
                     TransactionId: Guid.NewGuid(),
                     ClientId: account.ClientId,
                     AccountNumber: account.AccountNumber,
                     Amount: faker.Random.Decimal(1m, 1000m),
-                    CardNumber: faker.Finance.CreditCardNumber(CardType.Mastercard),
+                    CardNumber: cardNumber,
                     Status: TransactionStatus.Pending,
                     OccurredOn: DateTime.UtcNow);
             });
@@ -80,5 +85,28 @@ public sealed class TransactionDtoGeneratorFactory
         }
 
         return account;
+    }
+
+    private (SeededAccount Account, string PixKey) PickPixKey(string? excludePixKey = null)
+    {
+        return _accountProvider.NextPixKey(excludePixKey);
+    }
+
+    private static string GenerateCardNumber(Faker faker)
+    {
+        var cardNumber = faker.Finance.CreditCardNumber(CardType.Mastercard);
+        if (string.IsNullOrWhiteSpace(cardNumber))
+        {
+            cardNumber = $"5{faker.Random.Long(100000000000000, 999999999999999)}";
+        }
+
+        cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+
+        if (string.IsNullOrWhiteSpace(cardNumber))
+        {
+            throw new InvalidOperationException("Card number generation failed.");
+        }
+
+        return cardNumber;
     }
 }

@@ -70,7 +70,8 @@ public sealed class ApiSeedService
                     return null;
                 }
 
-                seededAccounts.Add(new SeededAccount(client.Id, account.AccountNumber));
+                var pixKeys = CreatePixKeysForAccount(client.Id, account.AccountNumber);
+                seededAccounts.Add(new SeededAccount(client.Id, account.AccountNumber, pixKeys));
             }
         }
 
@@ -290,4 +291,21 @@ public sealed class ApiSeedService
     private sealed record ApiCreateAccountRequest(Guid ClientId, string AccountNumber, decimal InitialBalance);
     private sealed record ClientResponse(Guid Id, string Name, string Email, string Cpf, string MobileNumber);
     private sealed record AccountResponse(Guid Id, Guid ClientId, string AccountNumber, decimal Balance, DateTime OpenedAt);
+
+    private static IReadOnlyList<string> CreatePixKeysForAccount(Guid clientId, string accountNumber)
+    {
+        // Deterministic-ish keys to simulate pre-registered Pix identifiers per account
+        var emailKey = $"pix-{accountNumber}@mock.example.com";
+        var phoneKey = $"+551198{accountNumber}";
+
+        // Derive a CPF-like key from account number seed
+        var cpfSeed = int.TryParse(accountNumber[..Math.Min(accountNumber.Length, 6)], out var parsed)
+            ? parsed
+            : clientId.GetHashCode();
+        var cpfKey = GenerateCpf(Math.Abs(cpfSeed % 999999));
+
+        var guidKey = Guid.NewGuid().ToString("D");
+
+        return new[] { emailKey, phoneKey, cpfKey, guidKey };
+    }
 }

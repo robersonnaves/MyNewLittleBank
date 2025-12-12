@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Domain.DTOs;
 using Domain.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,6 @@ namespace Mock.Transactions;
 
 public sealed class MockTransactionsWorker : BackgroundService
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private readonly TransactionDtoGeneratorFactory _factory;
     private readonly SeededAccountProvider _accountProvider;
@@ -75,18 +75,29 @@ public sealed class MockTransactionsWorker : BackgroundService
                 _accountProvider.SetAccounts(seeded);
             }
 
+            var effectiveType = transactionType;
             if (string.Equals(transactionType, "all", StringComparison.OrdinalIgnoreCase))
             {
-                var types = _factory.AvailableTypes.ToList();
+                var types = _factory.AvailableTypes
+                    .Where(type => !IsPix(type) || _accountProvider.HasPixKeys)
+                    .ToList();
+
                 if (types.Count != 0)
                 {
-                    transactionType = types[Random.Shared.Next(types.Count)];
+                    effectiveType = types[Random.Shared.Next(types.Count)];
                 }
             }
 
-            if (!_factory.TryGet(transactionType, out var generator) || generator is null)
+            if (IsPix(effectiveType) && !_accountProvider.HasPixKeys)
             {
-                _typeNotRegistered(_logger, transactionType, null);
+                _logger.LogWarning("Pix publishing blocked until Pix keys are seeded or configured.");
+                await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (!_factory.TryGet(effectiveType, out var generator) || generator is null)
+            {
+                _typeNotRegistered(_logger, effectiveType, null);
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
                 continue;
             }
@@ -98,28 +109,93 @@ public sealed class MockTransactionsWorker : BackgroundService
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogWarning(ex, "Failed to generate transaction because no accounts are available yet.");
+                _logger.LogWarning(ex, "Failed to generate transaction; generator reported invalid state.");
                 await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken).ConfigureAwait(false);
                 continue;
             }
             
             // Validate DTO has valid transaction ID
-            var transactionId = dto.GetType().GetProperty("TransactionId")?.GetValue(dto) as Guid?;
+            var transactionIdProperty = dto.GetType().GetProperty("TransactionId");
+            if (transactionIdProperty is null)
+            {
+                _logger.LogError("DTO type {Type} does not have TransactionId property", dto.GetType().Name);
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                continue;
+            }
+
+            var transactionId = transactionIdProperty.GetValue(dto) as Guid?;
             if (transactionId == null || transactionId == Guid.Empty)
             {
-                _logger.LogError("Generated transaction has empty or null TransactionId. Type: {Type}", transactionType);
+                _logger.LogError("Generated transaction has empty or null TransactionId. Type: {Type}. Regenerating...", effectiveType);
+                
+                // Tentar regenerar o DTO uma vez
+                try
+                {
+                    dto = generator();
+                    transactionId = transactionIdProperty.GetValue(dto) as Guid?;
+                    if (transactionId == null || transactionId == Guid.Empty)
+                    {
+                        _logger.LogError("Regenerated transaction still has empty TransactionId. Skipping. Type: {Type}", effectiveType);
+                        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                        continue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to regenerate transaction. Type: {Type}", effectiveType);
+                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+            }
+
+            if (dto is PixTransactionDto pixDto)
+            {
+                if (string.IsNullOrWhiteSpace(pixDto.OriginPixKey) || string.IsNullOrWhiteSpace(pixDto.DestinationPixKey))
+                {
+                    _logger.LogError("Skipping Pix publish due to invalid Pix keys. Origin={Origin}, Destination={Destination}", pixDto.OriginPixKey, pixDto.DestinationPixKey);
+                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+            }
+            else if (dto is CardTransactionDto cardDto)
+            {
+                if (string.IsNullOrWhiteSpace(cardDto.CardNumber))
+                {
+                    _logger.LogError("Skipping Card publish due to missing card number.");
+                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+            }
+
+            // Validar após serialização também
+            var payload = SerializeDto(dto);
+            var deserializedCheck = JsonSerializer.Deserialize<JsonElement>(payload);
+            var propertyName = JsonNamingPolicy.CamelCase.ConvertName("TransactionId");
+            if (deserializedCheck.TryGetProperty(propertyName, out var idElement))
+            {
+                if (idElement.ValueKind == JsonValueKind.String && 
+                    Guid.TryParse(idElement.GetString(), out var parsedId) && 
+                    parsedId == Guid.Empty)
+                {
+                    _logger.LogError("Serialized transaction has empty TransactionId in JSON. Skipping. Type: {Type}", effectiveType);
+                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+            }
+            else
+            {
+                _logger.LogError("Serialized transaction does not have TransactionId property in JSON. Skipping. Type: {Type}", effectiveType);
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
                 continue;
             }
             
-            var payload = JsonSerializer.Serialize(dto, SerializerOptions);
-            var messageType = $"mock.{transactionType.ToUpperInvariant()}";
+            var messageType = $"mock.{effectiveType.ToUpperInvariant()}";
             var routingKey = string.Equals(settings.TransactionType, "all", StringComparison.OrdinalIgnoreCase) 
-                ? $"{transactionType.ToLowerInvariant()}.transactions" 
+                ? $"{effectiveType.ToLowerInvariant()}.transactions" 
                 : settings.RoutingKey;
 
             await _publisher.PublishAsync(messageType, payload, stoppingToken).ConfigureAwait(false);
-            _published(_logger, transactionType, routingKey, null);
+            _published(_logger, effectiveType, routingKey, null);
 
             await Task.Delay(CalculateDelay(settings), stoppingToken).ConfigureAwait(false);
         }
@@ -139,5 +215,18 @@ public sealed class MockTransactionsWorker : BackgroundService
 
         var delaySeconds = 1.0 / settings.MessagesPerSecond;
         return TimeSpan.FromSeconds(delaySeconds);
+    }
+
+    private static bool IsPix(string type) => string.Equals(type, "pix", StringComparison.OrdinalIgnoreCase);
+
+    private static string SerializeDto(object dto)
+    {
+        return dto switch
+        {
+            CardTransactionDto cardDto => JsonSerializer.Serialize(cardDto, TransactionDtoJsonContext.Default.CardTransactionDto),
+            PixTransactionDto pixDto => JsonSerializer.Serialize(pixDto, TransactionDtoJsonContext.Default.PixTransactionDto),
+            MoneyTransactionDto moneyDto => JsonSerializer.Serialize(moneyDto, TransactionDtoJsonContext.Default.MoneyTransactionDto),
+            _ => throw new InvalidOperationException($"Unsupported DTO type: {dto.GetType().Name}")
+        };
     }
 }
