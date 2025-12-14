@@ -38,15 +38,15 @@ O produtor `Mock.Transactions` SHALL gerar e utilizar chaves Pix válidas associ
 
 #### Scenario: Pix usa chaves de telefone ou email
 - **WHEN** uma transação Pix é gerada,
-- **THEN** as chaves de origem/destino podem ser selecionadas de telefones ou emails cadastrados para as contas mockadas e não podem ser vazias.
+- **THEN** as chaves de origem/destino podem ser selecionadas de telefones, emails, CPFs ou GUIDs cadastrados para as contas mockadas e não podem ser vazias.
 
 #### Scenario: Pix usa chave CPF
 - **WHEN** uma transação Pix é gerada,
-- **THEN** as chaves podem ser CPFs válidos associados às contas mockadas, sem valores vazios ou inválidos.
+- **THEN** as chaves podem ser CPFs válidos, telefones, emails ou GUIDs associados às contas mockadas, sem valores vazios ou inválidos.
 
 #### Scenario: Pix usa chave aleatória (GUID)
 - **WHEN** uma transação Pix é gerada,
-- **THEN** as chaves podem ser GUIDs previamente registrados para as contas mockadas, garantindo não-vazios e unicidade dentro do conjunto da conta.
+- **THEN** as chaves podem ser GUIDs previamente registrados para as contas mockadas, telefones, emails ou CPFs, garantindo não-vazios e unicidade dentro do conjunto da conta.
 
 ### Requirement: Mock.Transactions usa chaves Pix já cadastradas
 O serviço `Mock.Transactions` SHALL publicar transações Pix apenas com chaves Pix previamente cadastradas e vinculadas às contas alvo, alinhando o comportamento ao uso de contas já cadastradas em transações em dinheiro.
@@ -55,41 +55,5 @@ O serviço `Mock.Transactions` SHALL publicar transações Pix apenas com chaves
 - **WHEN** o serviço inicializa com publicação de Pix habilitada e não há chaves Pix conhecidas,
 - **THEN** ele registra ou recupera chaves Pix válidas para as contas já semeadas e armazena-as para uso na geração de transações Pix.
 
-#### Scenario: Geração de Pix reutiliza chaves cadastradas
-- **WHEN** uma transação Pix é gerada pelo produtor,
-- **THEN** as chaves de origem e destino são escolhidas a partir do conjunto de chaves Pix previamente cadastradas e associadas às contas conhecidas, sem gerar valores aleatórios ou não cadastrados.
-
-#### Scenario: Publicação bloqueada sem chaves Pix válidas
-- **WHEN** o serviço não consegue garantir a existência de chaves Pix válidas (falha ao registrar/recuperar),
-- **THEN** ele não publica transações Pix e registra o erro até que chaves válidas estejam disponíveis.
-
-### Requirement: Mock.Transactions bloqueia payloads inválidos antes de publicar
-O produtor `Mock.Transactions` SHALL validar os payloads de transação e NÃO publicar mensagens que violem regras mínimas de domínio (IDs vazios, chaves Pix vazias ou números de cartão ausentes), gerando log de erro para correção.
-
-#### Scenario: TransactionId não pode ser vazio
-- **WHEN** um payload de transação é construído para publicação,
-- **THEN** se `TransactionId` for `Guid.Empty` ou ausente, a publicação é bloqueada e o erro é registrado.
-
-#### Scenario: Chaves Pix não vazias e pré-existentes
-- **WHEN** uma transação Pix é gerada,
-- **THEN** as chaves de origem e destino são selecionadas de chaves Pix pré-cadastradas e não vazias; caso contrário, a publicação é bloqueada e o erro é registrado.
-
-#### Scenario: Número de cartão obrigatório
-- **WHEN** uma transação de cartão é gerada,
-- **THEN** o número de cartão deve estar presente e não vazio; caso contrário, a publicação é bloqueada e o erro é registrado.
-
 ### Requirement: Mock.Transactions sempre gera payloads válidos
 O produtor `Mock.Transactions` SHALL gerar apenas payloads de transação que atendam às regras mínimas de domínio antes de publicar, incluindo TransactionId não vazio, chaves Pix válidas e número de cartão presente/formatado.
-
-#### Scenario: TransactionId gerado sempre válido
-- **WHEN** um payload é criado para publicação,
-- **THEN** o `TransactionId` é preenchido com um GUID não vazio.
-
-#### Scenario: Chaves Pix válidas e não vazias
-- **WHEN** uma transação Pix é gerada,
-- **THEN** as chaves de origem e destino são selecionadas de um conjunto válido (telefone, email, CPF ou GUID) e nunca são vazias.
-
-#### Scenario: Número de cartão presente
-- **WHEN** uma transação de cartão é gerada,
-- **THEN** o número de cartão está presente e formatado/normalizado antes da publicação.
-

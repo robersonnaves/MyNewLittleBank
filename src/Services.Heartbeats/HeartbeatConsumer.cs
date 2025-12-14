@@ -1,13 +1,12 @@
-using System.Diagnostics;
 using Domain.Interfaces;
+using Domain.Messaging;
 using Infra.Message;
-using Infra.Message.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Services.Heartbeats;
 
-public sealed class HeartbeatConsumer : RabbitConsumerService<HeartbeatDto>
+public sealed class HeartbeatConsumer : IMessageConsumer
 {
     private static readonly Action<ILogger, string, DateTime, Exception?> HeartbeatReceived =
         LoggerMessage.Define<string, DateTime>(
@@ -16,27 +15,43 @@ public sealed class HeartbeatConsumer : RabbitConsumerService<HeartbeatDto>
             "Heartbeat received from {Service} at {Timestamp}");
 
     private readonly ILogger<HeartbeatConsumer> _logger;
+    private readonly string _expectedRoutingKey;
 
     public HeartbeatConsumer(
-        IRabbitConnectionFactory factory,
         IOptions<RabbitOptions> options,
-        ILogger<HeartbeatConsumer> logger,
-        ActivitySource activitySource)
-        : base(factory, options, logger, activitySource)
+        ILogger<HeartbeatConsumer> logger)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _expectedRoutingKey = options.Value.RoutingKey;
         _logger = logger;
     }
 
-    protected override bool TryDeserialize(ReadOnlyMemory<byte> body, out HeartbeatDto? message)
+    public bool CanHandle(MessageEnvelope envelope)
     {
-        message = System.Text.Json.JsonSerializer.Deserialize(body.Span, HeartbeatJsonContext.Default.HeartbeatDto);
-        return message is not null;
+        ArgumentNullException.ThrowIfNull(envelope);
+        return string.Equals(envelope.RoutingKey, _expectedRoutingKey, StringComparison.OrdinalIgnoreCase);
     }
 
-    protected override ValueTask ProcessMessageAsync(HeartbeatDto message, RabbitMQ.Client.IReadOnlyBasicProperties properties, CancellationToken cancellationToken)
+    public Task HandleAsync(MessageEnvelope envelope, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        if (!CanHandle(envelope))
+        {
+            _logger.LogDebug("Ignoring heartbeat message for routing key {RoutingKey}", envelope.RoutingKey);
+            return Task.CompletedTask;
+        }
+
+        var message = System.Text.Json.JsonSerializer.Deserialize(envelope.Payload, HeartbeatJsonContext.Default.HeartbeatDto);
+        if (message is null)
+        {
+            _logger.LogWarning("Heartbeat payload could not be deserialized for routing key {RoutingKey}", envelope.RoutingKey);
+            return Task.CompletedTask;
+        }
+
         HeartbeatReceived(_logger, message.ServiceName, message.TimestampUtc, null);
-        return ValueTask.CompletedTask;
+        return Task.CompletedTask;
     }
 }

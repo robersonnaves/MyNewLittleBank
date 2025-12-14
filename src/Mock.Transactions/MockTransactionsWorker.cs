@@ -17,7 +17,7 @@ public sealed class MockTransactionsWorker : BackgroundService
     private readonly IOptionsMonitor<MockTransactionsSettings> _settings;
     private readonly ILogger<MockTransactionsWorker> _logger;
     private readonly Action<ILogger, string, Exception?> _typeNotRegistered;
-    private readonly Action<ILogger, string, string, Exception?> _published;
+    private readonly Action<ILogger, string, string, Guid, Exception?> _publishedWithId;
 
     public MockTransactionsWorker(
         TransactionDtoGeneratorFactory factory,
@@ -46,10 +46,12 @@ public sealed class MockTransactionsWorker : BackgroundService
             new EventId(1, nameof(_typeNotRegistered)),
             "Transaction type {Type} is not registered; skipping publish.");
 
-        _published = LoggerMessage.Define<string, string>(
+        // EventId 3: Structured logging with transaction_id for observability
+        // Uses LoggerMessage.Define for performance (avoids boxing with value types like Guid)
+        _publishedWithId = LoggerMessage.Define<string, string, Guid>(
             LogLevel.Information,
-            new EventId(2, nameof(_published)),
-            "Published mock transaction of type {Type} to {RoutingKey}");
+            new EventId(3, nameof(_publishedWithId)),
+            "Published mock transaction of type {Type} to {RoutingKey} with transaction_id {TransactionId}");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -114,26 +116,31 @@ public sealed class MockTransactionsWorker : BackgroundService
                 continue;
             }
             
-            // Validate DTO has valid transaction ID
-            var transactionIdProperty = dto.GetType().GetProperty("TransactionId");
-            if (transactionIdProperty is null)
+            // Extract TransactionId type-safely using pattern matching (no reflection, no JSON parsing)
+            Guid transactionId = dto switch
             {
-                _logger.LogError("DTO type {Type} does not have TransactionId property", dto.GetType().Name);
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
-                continue;
-            }
+                PixTransactionDto pix => pix.TransactionId,
+                CardTransactionDto card => card.TransactionId,
+                MoneyTransactionDto money => money.TransactionId,
+                _ => Guid.Empty
+            };
 
-            var transactionId = transactionIdProperty.GetValue(dto) as Guid?;
-            if (transactionId == null || transactionId == Guid.Empty)
+            if (transactionId == Guid.Empty)
             {
-                _logger.LogError("Generated transaction has empty or null TransactionId. Type: {Type}. Regenerating...", effectiveType);
+                _logger.LogError("Generated transaction has empty TransactionId. Type: {Type}. Regenerating...", effectiveType);
                 
-                // Tentar regenerar o DTO uma vez
+                // Try regenerating the DTO once
                 try
                 {
                     dto = generator();
-                    transactionId = transactionIdProperty.GetValue(dto) as Guid?;
-                    if (transactionId == null || transactionId == Guid.Empty)
+                    transactionId = dto switch
+                    {
+                        PixTransactionDto pix => pix.TransactionId,
+                        CardTransactionDto card => card.TransactionId,
+                        MoneyTransactionDto money => money.TransactionId,
+                        _ => Guid.Empty
+                    };
+                    if (transactionId == Guid.Empty)
                     {
                         _logger.LogError("Regenerated transaction still has empty TransactionId. Skipping. Type: {Type}", effectiveType);
                         await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
@@ -148,6 +155,7 @@ public sealed class MockTransactionsWorker : BackgroundService
                 }
             }
 
+            // Validate DTO-specific fields
             if (dto is PixTransactionDto pixDto)
             {
                 if (string.IsNullOrWhiteSpace(pixDto.OriginPixKey) || string.IsNullOrWhiteSpace(pixDto.DestinationPixKey))
@@ -167,24 +175,16 @@ public sealed class MockTransactionsWorker : BackgroundService
                 }
             }
 
-            // Validar após serialização também
+            // Defense-in-depth: Validate TransactionId in serialized JSON (single parse, no duplicate)
             var payload = SerializeDto(dto);
             var deserializedCheck = JsonSerializer.Deserialize<JsonElement>(payload);
             var propertyName = JsonNamingPolicy.CamelCase.ConvertName("TransactionId");
-            if (deserializedCheck.TryGetProperty(propertyName, out var idElement))
+            if (!deserializedCheck.TryGetProperty(propertyName, out var idElement) || 
+                idElement.ValueKind != JsonValueKind.String ||
+                !Guid.TryParse(idElement.GetString(), out var jsonTransactionId) ||
+                jsonTransactionId != transactionId)
             {
-                if (idElement.ValueKind == JsonValueKind.String && 
-                    Guid.TryParse(idElement.GetString(), out var parsedId) && 
-                    parsedId == Guid.Empty)
-                {
-                    _logger.LogError("Serialized transaction has empty TransactionId in JSON. Skipping. Type: {Type}", effectiveType);
-                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
-                    continue;
-                }
-            }
-            else
-            {
-                _logger.LogError("Serialized transaction does not have TransactionId property in JSON. Skipping. Type: {Type}", effectiveType);
+                _logger.LogError("Serialized transaction TransactionId mismatch or missing. Type: {Type}, Expected: {ExpectedId}", effectiveType, transactionId);
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
                 continue;
             }
@@ -194,8 +194,8 @@ public sealed class MockTransactionsWorker : BackgroundService
                 ? $"{effectiveType.ToLowerInvariant()}.transactions" 
                 : settings.RoutingKey;
 
-            await _publisher.PublishAsync(messageType, payload, stoppingToken).ConfigureAwait(false);
-            _published(_logger, effectiveType, routingKey, null);
+            await _publisher.PublishAsync(messageType, payload, routingKey, stoppingToken).ConfigureAwait(false);
+            _publishedWithId(_logger, effectiveType, routingKey, transactionId, null);
 
             await Task.Delay(CalculateDelay(settings), stoppingToken).ConfigureAwait(false);
         }

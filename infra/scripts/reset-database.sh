@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PATH="$PATH:$HOME/.dotnet/tools"
+
 # Default values
 FORCE=false
 BACKUP=false

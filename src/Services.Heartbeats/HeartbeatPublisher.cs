@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Domain.Interfaces;
-using Infra.Message.Interfaces;
+using Infra.Message;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,19 +18,23 @@ public sealed class HeartbeatPublisher : BackgroundService
 
     private readonly IMessagePublisher _publisher;
     private readonly HeartbeatOptions _options;
+    private readonly RabbitOptions _rabbitOptions;
     private readonly ILogger<HeartbeatPublisher> _logger;
 
     public HeartbeatPublisher(
         IMessagePublisher publisher,
         IOptions<HeartbeatOptions> options,
+        IOptions<RabbitOptions> rabbitOptions,
         ILogger<HeartbeatPublisher> logger)
     {
         ArgumentNullException.ThrowIfNull(publisher);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(rabbitOptions);
         ArgumentNullException.ThrowIfNull(logger);
 
         _publisher = publisher;
         _options = options.Value;
+        _rabbitOptions = rabbitOptions.Value;
         _logger = logger;
     }
 
@@ -52,7 +56,7 @@ public sealed class HeartbeatPublisher : BackgroundService
     {
         try
         {
-            await _publisher.PublishAsync(_options.MessageType, payload, stoppingToken).ConfigureAwait(false);
+            await _publisher.PublishAsync(_options.MessageType, payload, _rabbitOptions.RoutingKey, stoppingToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

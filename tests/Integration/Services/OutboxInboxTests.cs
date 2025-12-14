@@ -48,6 +48,7 @@ public sealed class OutboxInboxTests : IntegrationTestBase
                 () => dispatchScope.ServiceProvider.GetRequiredService<MyNewLittleBankContext>(),
                 publisher,
                 dispatchScope.ServiceProvider.GetRequiredService<IOptions<OutboxOptions>>(),
+                dispatchScope.ServiceProvider.GetRequiredService<IOptions<Infra.Message.RabbitOptions>>(),
                 NullLogger<OutboxDispatcher>.Instance);
 
             await dispatcher.DispatchPendingAsync(CancellationToken.None).ConfigureAwait(false);

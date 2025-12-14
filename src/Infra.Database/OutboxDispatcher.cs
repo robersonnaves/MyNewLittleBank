@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Domain.Interfaces;
 using Infra.Database.Entities;
+using Infra.Message;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -26,23 +27,27 @@ public sealed class OutboxDispatcher : BackgroundService
     private readonly Func<MyNewLittleBankContext> _contextFactory;
     private readonly IMessagePublisher _publisher;
     private readonly OutboxOptions _options;
+    private readonly RabbitOptions _rabbitOptions;
     private readonly ILogger<OutboxDispatcher> _logger;
 
     public OutboxDispatcher(
         Func<MyNewLittleBankContext> contextFactory,
         IMessagePublisher publisher,
         IOptions<OutboxOptions> options,
+        IOptions<RabbitOptions> rabbitOptions,
         ILogger<OutboxDispatcher> logger)
     {
         ArgumentNullException.ThrowIfNull(contextFactory);
         ArgumentNullException.ThrowIfNull(publisher);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(rabbitOptions);
         ArgumentNullException.ThrowIfNull(logger);
 
         _contextFactory = contextFactory;
         _publisher = publisher;
         _logger = logger;
         _options = options.Value;
+        _rabbitOptions = rabbitOptions.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,7 +74,7 @@ public sealed class OutboxDispatcher : BackgroundService
         {
             try
             {
-                await _publisher.PublishAsync(message.MessageType, message.Payload, cancellationToken).ConfigureAwait(false);
+                await _publisher.PublishAsync(message.MessageType, message.Payload, _rabbitOptions.RoutingKey, cancellationToken).ConfigureAwait(false);
                 message.MarkSent(DateTime.UtcNow);
             }
             catch (Exception ex)

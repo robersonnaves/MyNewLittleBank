@@ -30,6 +30,7 @@ public sealed class OutboxInboxTests
             () => new MyNewLittleBankContext(options),
             publisher,
             Options.Create(new OutboxOptions { BatchSize = 10, PollInterval = TimeSpan.FromMilliseconds(10) }),
+            Options.Create(new Infra.Message.RabbitOptions { RoutingKey = "test.routing.key" }),
             NullLogger<OutboxDispatcher>.Instance);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
@@ -64,6 +65,7 @@ public sealed class OutboxInboxTests
             () => new MyNewLittleBankContext(options),
             failingPublisher,
             Options.Create(new OutboxOptions { BatchSize = 10, PollInterval = TimeSpan.FromMilliseconds(10) }),
+            Options.Create(new Infra.Message.RabbitOptions { RoutingKey = "test.routing.key" }),
             NullLogger<OutboxDispatcher>.Instance);
 
         await dispatcher.DispatchPendingAsync(CancellationToken.None);
@@ -100,18 +102,18 @@ public sealed class OutboxInboxTests
 
     private sealed class FakePublisher : IMessagePublisher
     {
-        public List<(string MessageType, string Payload)> PublishedMessages { get; } = new();
+        public List<(string MessageType, string Payload, string RoutingKey)> PublishedMessages { get; } = new();
 
-        public Task PublishAsync(string messageType, string payload, CancellationToken cancellationToken = default)
+        public Task PublishAsync(string messageType, string payload, string routingKey, CancellationToken cancellationToken = default)
         {
-            PublishedMessages.Add((messageType, payload));
+            PublishedMessages.Add((messageType, payload, routingKey));
             return Task.CompletedTask;
         }
     }
 
     private sealed class FailingPublisher : IMessagePublisher
     {
-        public Task PublishAsync(string messageType, string payload, CancellationToken cancellationToken = default) =>
+        public Task PublishAsync(string messageType, string payload, string routingKey, CancellationToken cancellationToken = default) =>
             Task.FromException(new InvalidOperationException("fail"));
     }
 }

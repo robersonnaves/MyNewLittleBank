@@ -8,11 +8,11 @@ namespace MyNewLittleBank.Tests.Integration.Infrastructure;
 
 public sealed class TestPublisher : IMessagePublisher
 {
-    public ConcurrentBag<(string MessageType, string Payload)> PublishedMessages { get; } = new();
+    public ConcurrentBag<(string MessageType, string Payload, string RoutingKey)> PublishedMessages { get; } = new();
 
-    public Task PublishAsync(string messageType, string payload, CancellationToken cancellationToken = default)
+    public Task PublishAsync(string messageType, string payload, string routingKey, CancellationToken cancellationToken = default)
     {
-        PublishedMessages.Add((messageType, payload));
+        PublishedMessages.Add((messageType, payload, routingKey));
         return Task.CompletedTask;
     }
 }

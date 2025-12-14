@@ -1,17 +1,15 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Domain.DTOs;
 using Domain.Interfaces;
+using Domain.Messaging;
 using Infra.Message;
-using Infra.Message.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RabbitMQ.Client;
 using UseCases.Transactions;
 
 namespace Services.Money;
 
-public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransactionDto>
+public sealed class MoneyTransactionReceiver : IMessageConsumer
 {
     private readonly IProcessTransactionsHandler _handler;
     private readonly ILogger<MoneyTransactionReceiver> _logger;
@@ -28,28 +26,41 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
             "Money transaction processing failed with error {Error}");
 
     public MoneyTransactionReceiver(
-        IRabbitConnectionFactory factory,
         IOptions<RabbitOptions> options,
         ILogger<MoneyTransactionReceiver> logger,
-        IProcessTransactionsHandler handler,
-        ActivitySource activitySource)
-        : base(factory, options, logger, activitySource)
+        IProcessTransactionsHandler handler)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(handler);
+
         _handler = handler;
         _logger = logger;
         _expectedRoutingKey = options.Value.RoutingKey;
     }
 
-    protected override bool TryDeserialize(ReadOnlyMemory<byte> body, out MoneyTransactionDto? message)
+    public bool CanHandle(MessageEnvelope envelope)
     {
-        message = JsonSerializer.Deserialize(body.Span, MoneyTransactionJsonContext.Default.MoneyTransactionDto);
-        return message is not null;
+        ArgumentNullException.ThrowIfNull(envelope);
+        return string.Equals(envelope.RoutingKey, _expectedRoutingKey, StringComparison.OrdinalIgnoreCase);
     }
 
-    protected override async ValueTask ProcessMessageAsync(MoneyTransactionDto message, IReadOnlyBasicProperties properties, CancellationToken cancellationToken)
+    public async Task HandleAsync(MessageEnvelope envelope, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        if (!CanHandle(envelope))
+        {
+            IgnoredRoutingKey(_logger, envelope.RoutingKey, _expectedRoutingKey, null);
+            return;
+        }
+
+        var message = JsonSerializer.Deserialize(envelope.Payload, MoneyTransactionJsonContext.Default.MoneyTransactionDto);
+        if (message is null)
+        {
+            _logger.LogWarning("Money transaction payload could not be deserialized for routing key {RoutingKey}", envelope.RoutingKey);
+            return;
+        }
 
         var result = await _handler.HandleAsync(message, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
@@ -57,16 +68,5 @@ public sealed class MoneyTransactionReceiver : RabbitConsumerService<MoneyTransa
             ProcessingFailed(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
-    }
-
-    protected override bool ShouldProcess(string routingKey, IReadOnlyBasicProperties properties)
-    {
-        if (string.Equals(routingKey, _expectedRoutingKey, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        IgnoredRoutingKey(_logger, routingKey, _expectedRoutingKey, null);
-        return false;
     }
 }

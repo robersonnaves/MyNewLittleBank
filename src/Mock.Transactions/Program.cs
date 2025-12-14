@@ -1,5 +1,4 @@
 using Infra.Message;
-using Infra.Message.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
@@ -45,13 +44,6 @@ builder.Services.AddRabbitMessaging(builder.Configuration);
 builder.Services.AddHostedService<MockTransactionsWorker>();
 
 var app = builder.Build();
-
-// Ensure RabbitMQ topology before starting
-using (var scope = app.Services.CreateScope())
-{
-    var bootstrapper = scope.ServiceProvider.GetRequiredService<IRabbitTopologyBootstrapper>();
-    await bootstrapper.EnsureTopologyAsync().ConfigureAwait(false);
-}
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
