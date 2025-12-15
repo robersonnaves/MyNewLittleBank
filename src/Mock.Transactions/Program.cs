@@ -12,8 +12,8 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 const string serviceName = "mock.transactions";
 
-builder.AddSerilogLogging(serviceName);
-builder.Services.AddObservability(serviceName, builder.Configuration);
+builder.AddSerilogLogging();
+builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 
 builder.Configuration.AddCommandLine(args);

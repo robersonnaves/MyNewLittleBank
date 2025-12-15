@@ -12,8 +12,8 @@ using Shared.Observability;
 var builder = WebApplication.CreateBuilder(args);
 const string serviceName = "services.heartbeats";
 
-builder.AddSerilogLogging(serviceName);
-builder.Services.AddObservability(serviceName, builder.Configuration);
+builder.AddSerilogLogging();
+builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 
 builder.Services.Configure<HeartbeatOptions>(builder.Configuration.GetSection("Heartbeat"));

@@ -15,10 +15,9 @@ using UseCases.Accounts;
 using UseCases.Clients;
 
 var builder = WebApplication.CreateBuilder(args);
-const string serviceName = "api";
 
-builder.AddSerilogLogging(serviceName);
-builder.Services.AddObservability(serviceName, builder.Configuration);
+builder.AddSerilogLogging();
+builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();

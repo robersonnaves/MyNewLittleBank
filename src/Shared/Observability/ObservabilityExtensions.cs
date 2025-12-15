@@ -13,6 +13,7 @@ using OpenTelemetry.Instrumentation.Runtime;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -23,53 +24,118 @@ using Serilog.Sinks.Elasticsearch;
 #pragma warning disable CA1716 // Identifiers should not match keywords
 namespace Shared.Observability;
 
+
 public static class ObservabilityExtensions
 {
-    public static IServiceCollection AddObservability(this IServiceCollection services, string serviceName, IConfiguration configuration)
+    public static IHostApplicationBuilder AddObservability(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(builder);
 
-        // ActivitySource is managed by DI container, which will handle disposal
-#pragma warning disable CA2000 // Dispose objects before losing scope - managed by DI container
-        var activitySource = new ActivitySource(serviceName);
-        services.AddSingleton(activitySource);
-#pragma warning restore CA2000
+        // 1. Configurar Resource Builder (Service Name, Version, etc)
+        var resourceBuilder = ConfigureResource(builder.Configuration);
 
-        services.AddOpenTelemetry()
-            .ConfigureResource(resource => ConfigureResource(resource, serviceName, configuration))
-            .WithTracing(builder =>
+        // 2. Adicionar Logging OpenTelemetry
+        builder.Logging.AddOpenTelemetry(logging =>
+        {
+            logging.IncludeFormattedMessage = true;
+            logging.IncludeScopes = true;
+            logging.SetResourceBuilder(resourceBuilder);
+
+            if (builder.Configuration.GetValue("OpenTelemetry:Logging:Enabled", false))
             {
-                builder.AddSource(serviceName);
-                builder.AddAspNetCoreInstrumentation();
-                builder.AddHttpClientInstrumentation();
-                builder.AddEntityFrameworkCoreInstrumentation();
-
-                var endpoint = configuration["OpenTelemetry:Otlp:Endpoint"];
+                var endpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];
                 if (!string.IsNullOrWhiteSpace(endpoint))
                 {
-                    builder.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
+                    logging.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
+                }
+            }
+        });
+
+        // 3. Adicionar Tracing e Metrics
+        builder.Services.AddOpenTelemetry()
+            .WithTracing(tracing =>
+            {
+                tracing.SetResourceBuilder(resourceBuilder);
+                tracing.AddAspNetCoreInstrumentation();
+                tracing.AddHttpClientInstrumentation();
+                tracing.AddEntityFrameworkCoreInstrumentation();
+                
+                // Adicionar Source do próprio serviço para spans manuais
+                var serviceName = builder.Configuration["OpenTelemetry:ServiceName"] 
+                                 ?? builder.Environment.ApplicationName;
+                tracing.AddSource(serviceName);
+
+                if (builder.Configuration.GetValue("OpenTelemetry:Tracing:Enabled", false))
+                {
+                    var endpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];
+                    if (!string.IsNullOrWhiteSpace(endpoint))
+                    {
+                        tracing.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
+                    }
+                }
+                
+                // Configurar Sampling
+                var sampling = builder.Configuration["OpenTelemetry:Tracing:Sampling"];
+                if (string.Equals(sampling, "AlwaysOn", StringComparison.OrdinalIgnoreCase))
+                {
+                    tracing.SetSampler(new AlwaysOnSampler());
                 }
             })
-            .WithMetrics(builder =>
+            .WithMetrics(metrics =>
             {
-                builder.AddRuntimeInstrumentation();
-                builder.AddAspNetCoreInstrumentation();
-                builder.AddHttpClientInstrumentation();
-                builder.AddPrometheusExporter();
-                var endpoint = configuration["OpenTelemetry:Otlp:Endpoint"];
-                if (!string.IsNullOrWhiteSpace(endpoint))
+                metrics.SetResourceBuilder(resourceBuilder);
+                metrics.AddRuntimeInstrumentation();
+                metrics.AddAspNetCoreInstrumentation();
+                metrics.AddHttpClientInstrumentation();
+
+                // Adicionar Meter do próprio serviço para métricas manuais
+                var serviceName = builder.Configuration["OpenTelemetry:ServiceName"] 
+                                 ?? builder.Environment.ApplicationName;
+                metrics.AddMeter(serviceName);
+
+                if (builder.Configuration.GetValue("OpenTelemetry:Metrics:Enabled", false))
                 {
-                    builder.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
+                    var endpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];
+                    if (!string.IsNullOrWhiteSpace(endpoint))
+                    {
+                        metrics.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
+                    }
                 }
             });
 
-        return services;
+        // Registrar ActivitySource para injeção de dependência se necessário
+        // Embora seja melhor usar ApplicationMetrics ou ActivitySource estático,
+        // manter registro no DI pode ajudar em alguns cenários.
+        var appServiceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? builder.Environment.ApplicationName;
+        builder.Services.AddSingleton(new ActivitySource(appServiceName));
+
+        return builder;
     }
 
-    public static IHostApplicationBuilder AddSerilogLogging(this IHostApplicationBuilder builder, string serviceName)
+    private static ResourceBuilder ConfigureResource(IConfiguration configuration)
+    {
+        var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "Unknown-Service";
+        var serviceVersion = configuration["OpenTelemetry:ServiceVersion"] ?? "1.0.0";
+        var environment = configuration["OpenTelemetry:Environment"] ?? "Production";
+        var role = configuration["OpenTelemetry:Role"] ?? "Unknown";
+
+        return ResourceBuilder.CreateDefault()
+            .AddService(serviceName: serviceName, serviceVersion: serviceVersion)
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["deployment.environment"] = environment,
+                ["service.role"] = role
+            });
+    }
+
+    public static IHostApplicationBuilder AddSerilogLogging(this IHostApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
+
+        // Se OpenTelemetry Logging já está ativo, Serilog pode ser redundante ou complementar.
+        // Vamos manter a configuração existente de Serilog mas ler da config nova se precisar.
+        // Simplificação: Ler ServiceName da config
+        var serviceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? "Unknown";
 
         var loggerConfig = new LoggerConfiguration()
             .ReadFrom.Configuration(builder.Configuration)
@@ -96,27 +162,6 @@ public static class ObservabilityExtensions
         builder.Logging.AddSerilog(logger, dispose: true);
 
         return builder;
-    }
-
-    private static ResourceBuilder ConfigureResource(ResourceBuilder resourceBuilder, string serviceName, IConfiguration configuration)
-    {
-        var environmentName = configuration["OpenTelemetry:ServiceEnvironment"]
-            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
-            ?? "production";
-        var version = configuration["OpenTelemetry:ServiceVersion"]
-            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
-
-        resourceBuilder.AddService(
-            serviceName: serviceName,
-            serviceVersion: version,
-            serviceInstanceId: Environment.MachineName);
-
-        resourceBuilder.AddAttributes(new[]
-        {
-            new KeyValuePair<string, object?>("deployment.environment", environmentName)
-        });
-
-        return resourceBuilder;
     }
 
     private sealed class SensitiveDataRedactor : ILogEventEnricher
@@ -151,3 +196,4 @@ public static class ObservabilityExtensions
         }
     }
 }
+

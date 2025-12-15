@@ -14,8 +14,8 @@ using UseCases.Transactions;
 var builder = WebApplication.CreateBuilder(args);
 const string serviceName = "services.pix";
 
-builder.AddSerilogLogging(serviceName);
-builder.Services.AddObservability(serviceName, builder.Configuration);
+builder.AddSerilogLogging();
+builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
 builder.Services.AddRabbitMessaging(builder.Configuration);

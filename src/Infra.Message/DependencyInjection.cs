@@ -6,6 +6,7 @@ using Rebus.Config;
 using Rebus.Pipeline;
 using Rebus.Pipeline.Invokers;
 using Rebus.Pipeline.Send;
+using Rebus.Pipeline.Receive;
 using Rebus.ServiceProvider;
 
 namespace Infra.Message;
@@ -53,10 +54,14 @@ public static class MessagingServiceCollectionExtensions
                 o.Decorate<IPipeline>(c =>
                 {
                     var pipeline = c.Get<IPipeline>();
-                    var tracingStep = new TracingHeadersStep();
+                    var outgoingStep = new TracingHeadersStep();
+                    var incomingStep = new TracingIncomingStep();
+                    
                     return new PipelineStepInjector(pipeline)
-                        .OnSend(tracingStep, PipelineRelativePosition.Before, typeof(SendOutgoingMessageStep));
+                        .OnSend(outgoingStep, PipelineRelativePosition.Before, typeof(SendOutgoingMessageStep))
+                        .OnReceive(incomingStep, PipelineRelativePosition.Before, typeof(ActivateHandlersStep));
                 });
+
             });
             
             return configure;
