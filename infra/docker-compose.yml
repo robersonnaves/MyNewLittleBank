@@ -182,6 +182,8 @@ services:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
       - RabbitMQ__Password=guest
+      - RabbitMQ__Queue=queue.card.transactions
+      - RabbitMQ__RoutingKey=card.transactions
     restart: on-failure
     networks:
       - bank-net
@@ -222,6 +224,8 @@ services:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
       - RabbitMQ__Password=guest
+      - RabbitMQ__Queue=queue.money.transactions
+      - RabbitMQ__RoutingKey=money.transactions
     restart: on-failure
     networks:
       - bank-net
@@ -242,6 +246,8 @@ services:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
       - RabbitMQ__Password=guest
+      - RabbitMQ__Queue=queue.pix.transactions
+      - RabbitMQ__RoutingKey=pix.transactions
     restart: on-failure
     networks:
       - bank-net
