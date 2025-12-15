@@ -24,6 +24,11 @@ public sealed class MoneyTransactionReceiver : IMessageConsumer
             LogLevel.Warning,
             new EventId(1, nameof(ProcessingFailed)),
             "Money transaction processing failed with error {Error}");
+    private static readonly Action<ILogger, string, Exception?> IgnoredMessageType =
+        LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            new EventId(3, nameof(IgnoredMessageType)),
+            "Ignoring non-transaction message type {MessageType} in Money receiver");
 
     public MoneyTransactionReceiver(
         IOptions<RabbitOptions> options,
@@ -55,6 +60,12 @@ public sealed class MoneyTransactionReceiver : IMessageConsumer
             return;
         }
 
+        if (!IsTransactionMessage(envelope.MessageType))
+        {
+            IgnoredMessageType(_logger, envelope.MessageType, null);
+            return;
+        }
+
         var message = JsonSerializer.Deserialize(envelope.Payload, MoneyTransactionJsonContext.Default.MoneyTransactionDto);
         if (message is null)
         {
@@ -68,5 +79,10 @@ public sealed class MoneyTransactionReceiver : IMessageConsumer
             ProcessingFailed(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
+    }
+
+    private static bool IsTransactionMessage(string messageType)
+    {
+        return messageType.StartsWith("mock.", StringComparison.OrdinalIgnoreCase);
     }
 }
