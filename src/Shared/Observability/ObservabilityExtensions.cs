@@ -93,6 +93,9 @@ public static class ObservabilityExtensions
                                  ?? builder.Environment.ApplicationName;
                 metrics.AddMeter(serviceName);
 
+                // Adicionar PrometheusExporter para /metrics endpoint
+                metrics.AddPrometheusExporter();
+
                 if (builder.Configuration.GetValue("OpenTelemetry:Metrics:Enabled", false))
                 {
                     var endpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];

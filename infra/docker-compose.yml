@@ -71,14 +71,35 @@ services:
     networks:
       - bank-net
 
+  otel-collector:
+    container_name: otel-collector
+    image: docker.io/otel/opentelemetry-collector-contrib:0.112.0
+    profiles: [ local, ci ]
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8889:8889"   # Prometheus metrics exporter
+      - "13133:13133" # health_check extension
+    depends_on:
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --spider -q http://localhost:13133" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - bank-net
+
   jaeger:
     container_name: jaeger
     image: docker.io/jaegertracing/all-in-one:1.58
     profiles: [ local, ci ]
     ports:
       - "${JAEGER_UI_PORT:-16686}:16686"
-      - "4317:4317"
-      - "4318:4318"
     healthcheck:
       test: [ "CMD-SHELL", "wget --spider -q http://localhost:16686" ]
       interval: 5s
@@ -135,6 +156,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      otel-collector:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       - RabbitMQ__HostName=rabbitmq
@@ -156,6 +179,8 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+      otel-collector:
+        condition: service_healthy
     environment:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__UserName=guest
@@ -176,6 +201,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      otel-collector:
         condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
@@ -199,6 +226,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      otel-collector:
+        condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       - RabbitMQ__HostName=rabbitmq
@@ -218,6 +247,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      otel-collector:
         condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
@@ -240,6 +271,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      otel-collector:
         condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
