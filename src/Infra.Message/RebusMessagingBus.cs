@@ -27,9 +27,15 @@ public sealed class RebusMessagingBus : IMessagingBus
         _logger = logger;
     }
 
-    public async Task PublishAsync(MessageEnvelope envelope, CancellationToken cancellationToken = default)
+    public Task PublishAsync(MessageEnvelope envelope, CancellationToken cancellationToken = default)
+    {
+        return PublishAsync(envelope, new Dictionary<string, string>(), cancellationToken);
+    }
+
+    public async Task PublishAsync(MessageEnvelope envelope, IDictionary<string, string> headers, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(headers);
         ArgumentException.ThrowIfNullOrWhiteSpace(envelope.RoutingKey);
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -37,8 +43,8 @@ public sealed class RebusMessagingBus : IMessagingBus
         try
         {
             // Headers de tracing são adicionados automaticamente pelo TracingHeadersStep no pipeline
-            // Passar dicionário vazio - o middleware adicionará os headers de tracing
-            await _bus.Advanced.Topics.Publish(envelope.RoutingKey, envelope, new Dictionary<string, string>()).ConfigureAwait(false);
+            // Passar headers fornecidos - o middleware adicionará os headers de tracing
+            await _bus.Advanced.Topics.Publish(envelope.RoutingKey, envelope, headers).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 using Domain.Interfaces;
 using Domain.Messaging;
+using Rebus.Messages;
 
 namespace Infra.Message;
 
@@ -20,6 +21,21 @@ public sealed class RebusMessagePublisher : IMessagePublisher
         ArgumentException.ThrowIfNullOrWhiteSpace(routingKey);
 
         var envelope = new MessageEnvelope(messageType, payload, routingKey);
-        return _messagingBus.PublishAsync(envelope, cancellationToken);
+        var headers = BuildRebusHeaders(envelope);
+        
+        return _messagingBus.PublishAsync(envelope, headers, cancellationToken);
+    }
+
+    private static Dictionary<string, string> BuildRebusHeaders(MessageEnvelope envelope)
+    {
+        var headers = new Dictionary<string, string>
+        {
+            [Headers.ContentType] = "application/json",
+            [Headers.Type] = typeof(MessageEnvelope).AssemblyQualifiedName ?? typeof(MessageEnvelope).FullName ?? typeof(MessageEnvelope).Name,
+            ["message-type"] = envelope.MessageType,
+            ["routing-key"] = envelope.RoutingKey
+        };
+
+        return headers;
     }
 }
