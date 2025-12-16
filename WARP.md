@@ -16,8 +16,27 @@ MyNewLittleBank é uma arquitetura de microsserviços orientada a eventos para u
 
 ## Comandos de Desenvolvimento
 
+### Comandos Rápidos do Dia a Dia
+```bash
+# Subir infraestrutura + API + Workers
+export CONTAINER_ENGINE=podman
+./infra/scripts/bootstrap-compose.sh local
+./infra/scripts/start-all.sh
+
+# Executar todos os testes (unitários + integração)
+export CONTAINER_ENGINE=podman
+./infra/scripts/run-integration-tests.sh
+
+# Ver logs de um serviço específico
+podman logs -f mynewlittlebank-postgres-1
+podman logs -f mynewlittlebank-rabbitmq-1
+
+# Verificar containers em execução
+podman ps
+```
+
 ### Build e Restore
-```powershell
+```bash
 # Restaurar dependências
 dotnet restore
 
@@ -26,10 +45,13 @@ dotnet build --configuration Release
 
 # Build de um projeto específico
 dotnet build src/API/API.csproj
+
+# Limpar build artifacts
+dotnet clean
 ```
 
 ### Executar Serviços
-```powershell
+```bash
 # API REST
 dotnet run --project src/API
 
@@ -41,62 +63,89 @@ dotnet run --project src/Services.Heartbeats
 
 # Gerador de transações mock
 dotnet run --project src/Mock.Transactions
+
+# Executar todos os serviços (infraestrutura deve estar rodando)
+./infra/scripts/start-all.sh
 ```
 
 ### Testes
 
 #### Testes Unitários
-```powershell
+```bash
 # Todos os testes unitários (exclui integração)
 dotnet test --filter "Category!=Integration"
 
 # Testes de um projeto específico
 dotnet test tests/Domain.Tests
 dotnet test tests/UseCases.Tests
+
+# Executar teste específico
+dotnet test --filter "FullyQualifiedName~ClientTests.Create_Should_ReturnSuccess"
+
+# Ver output detalhado
+dotnet test --verbosity detailed
 ```
 
 #### Testes de Integração
-```powershell
+```bash
 # Usando script (sobe compose profile ci automaticamente)
 # Para Podman (padrão):
-$env:CONTAINER_ENGINE="podman"
-.\infra\scripts\run-integration-tests.ps1
+export CONTAINER_ENGINE=podman
+./infra/scripts/run-integration-tests.sh
 
 # Para Docker:
-$env:CONTAINER_ENGINE="docker"
-.\infra\scripts\run-integration-tests.ps1
+export CONTAINER_ENGINE=docker
+./infra/scripts/run-integration-tests.sh
 
 # Executar diretamente (requer infraestrutura rodando)
 dotnet test tests/Integration/MyNewLittleBank.Tests.Integration.csproj --filter "Category=Integration"
 ```
 
-### Infraestrutura (Docker/Podman)
+### Infraestrutura (Podman/Docker)
 
 #### Subir Infraestrutura Local
-```powershell
-# Para Podman (padrão):
-$env:CONTAINER_ENGINE="podman"
-.\infra\scripts\bootstrap-compose.ps1 local
+```bash
+# Para Podman (padrão - preferido no Fedora):
+export CONTAINER_ENGINE=podman
+./infra/scripts/bootstrap-compose.sh local
 
 # Para Docker:
-$env:CONTAINER_ENGINE="docker"
-.\infra\scripts\bootstrap-compose.ps1 local
+export CONTAINER_ENGINE=docker
+./infra/scripts/bootstrap-compose.sh local
+
+# Subir direto com podman:
+podman compose -f infra/docker-compose.yml up -d
 ```
 
-Serviços disponíveis:
+**Serviços disponíveis**:
 - **PostgreSQL**: localhost:5432 (postgres/postgres)
-- **RabbitMQ**: localhost:5672 (guest/guest) + Management UI em localhost:15672
-- **OpenSearch**: localhost:9200
-- **Jaeger UI**: localhost:16686
-- **Prometheus**: localhost:9090
+- **RabbitMQ**: localhost:5672 (guest/guest) | Management: http://localhost:15672
+- **OpenSearch**: http://localhost:9200
+- **Jaeger UI**: http://localhost:16686
+- **Prometheus**: http://localhost:9090
 
 #### Derrubar Infraestrutura
-```powershell
+```bash
 # Para Podman:
 podman compose -f infra/docker-compose.yml down -v --remove-orphans
 
 # Para Docker:
 docker compose -f infra/docker-compose.yml --profile local down -v --remove-orphans
+
+# Parar todos os serviços da aplicação:
+./infra/scripts/stop-all.sh
+```
+
+#### Resetar Banco de Dados
+```bash
+# Reset completo do banco (DESTRUTIVO)
+./infra/scripts/reset-database.sh
+
+# Com backup antes de dropar
+./infra/scripts/reset-database.sh --backup
+
+# Sem confirmação (para CI/CD)
+./infra/scripts/reset-database.sh --force
 ```
 
 ## Arquitetura e Estrutura de Código
@@ -372,8 +421,18 @@ O projeto é agnóstico e suporta Docker ou Podman. Defina `CONTAINER_ENGINE` (p
 
 ### User Secrets (Desenvolvimento Local)
 Usar `dotnet user-secrets` para configurações sensíveis:
-```powershell
+```bash
+# Definir connection string
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Database=mynewlittlebank;Username=postgres;Password=postgres"
+
+# Listar todos os secrets configurados
+dotnet user-secrets list --project src/API
+
+# Remover um secret
+dotnet user-secrets remove "ConnectionStrings:DefaultConnection" --project src/API
+
+# Limpar todos os secrets
+dotnet user-secrets clear --project src/API
 ```
 
 ## Documentação Adicional

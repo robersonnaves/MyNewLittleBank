@@ -127,17 +127,16 @@ fi
 
 # Drop database
 echo ""
-echo "Dropping database '${DB_NAME}'..."
 export PGPASSWORD="${DB_PASSWORD}"
-if [ "${FORCE}" = "true" ]; then
-  echo "Force disconnecting all sessions from database '${DB_NAME}'..."
-  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '${DB_NAME}' AND pid <> pg_backend_pid();" 2>&1
-  if [ $? -ne 0 ]; then
-    echo "Warning: Failed to force disconnect sessions."
-  else
-    echo "✓ Sessions disconnected."
-  fi
+echo "Force disconnecting all sessions from database '${DB_NAME}'..."
+psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '${DB_NAME}' AND pid <> pg_backend_pid();" 2>&1
+if [ $? -ne 0 ]; then
+  echo "Warning: Failed to force disconnect sessions."
+else
+  echo "✓ Sessions disconnected."
 fi
+
+echo "Dropping database '${DB_NAME}'..."
 psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d postgres -c "DROP DATABASE IF EXISTS \"${DB_NAME}\";" 2>&1
 
 if [ $? -eq 0 ]; then
