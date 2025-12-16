@@ -8,5 +8,5 @@
 - [x] 1.7 Documentar/limpar fixtures e alinhar configurações de testes com o spec.
 
 ## 2. Validação
-- [ ] 2.1 Executar suíte de integração Rebus end-to-end localmente (incluindo Testcontainers).
+- [x] 2.1 Executar suíte de integração Rebus end-to-end localmente (incluindo Testcontainers).
 - [x] 2.2 Rodar `openspec validate add-rebus-e2e-tests --strict`.

@@ -41,6 +41,7 @@ Este projeto utiliza uma stack completa de observabilidade baseada no **OpenTele
 ## Componentes
 
 ### 1. OpenTelemetry Collector (`otel-collector`)
+
 - **Imagem:** `otel/opentelemetry-collector-contrib:0.112.0`
 - **Portas:**
   - `4317`: OTLP gRPC receiver (usado pelas aplicações)
@@ -53,16 +54,18 @@ Este projeto utiliza uma stack completa de observabilidade baseada no **OpenTele
 **Configuração:** `otel-collector-config.yaml`
 
 ### 2. Jaeger (`jaeger`)
+
 - **Imagem:** `jaegertracing/all-in-one:1.58`
 - **Porta:** `16686` (UI)
 - **Função:** Visualização de traces distribuídos
-- **Acesso:** http://localhost:16686
+- **Acesso:** <http://localhost:16686>
 
 ### 3. Prometheus (`prometheus`)
+
 - **Imagem:** `prom/prometheus:v2.54.1`
 - **Porta:** `9090` (UI)
 - **Função:** Armazenamento e query de métricas
-- **Acesso:** http://localhost:9090
+- **Acesso:** <http://localhost:9090>
 - **Scrape targets:**
   - Prometheus interno (:9090)
   - Jaeger metrics (:14269)
@@ -70,25 +73,29 @@ Este projeto utiliza uma stack completa de observabilidade baseada no **OpenTele
   - Application metrics via OTel Collector (:8889)
 
 ### 4. OpenSearch (`opensearch`)
+
 - **Imagem:** `opensearchproject/opensearch:2.15.0`
 - **Porta:** `9200`
 - **Função:** Armazenamento de logs via Serilog
-- **Acesso:** http://localhost:9200
+- **Acesso:** <http://localhost:9200>
 
 ## Fluxo de Dados
 
 ### Traces (Distributed Tracing)
+
 1. Aplicações .NET geram spans usando OpenTelemetry SDK
 2. Spans são enviados via OTLP para o Collector (`:4317`)
 3. Collector processa (batch, attributes) e envia para Jaeger
 4. Visualização no Jaeger UI (`:16686`)
 
 **Instrumentação automática:**
+
 - ASP.NET Core (HTTP requests)
 - HttpClient (HTTP calls)
 - Entity Framework Core (database queries)
 
 ### Metrics
+
 1. Aplicações coletam métricas via OpenTelemetry SDK
 2. Métricas são enviadas via OTLP para o Collector (`:4317`)
 3. Collector expõe endpoint Prometheus (`:8889`)
@@ -96,18 +103,21 @@ Este projeto utiliza uma stack completa de observabilidade baseada no **OpenTele
 5. Visualização no Prometheus UI (`:9090`)
 
 **Métricas disponíveis:**
+
 - Runtime (.NET GC, memory, threads)
 - ASP.NET Core (HTTP requests, response times)
 - HttpClient (outgoing requests)
 - Custom metrics (via Meter API)
 
 ### Logs
+
 1. Serilog enriquece logs com contexto
 2. Logs vão para Console (stdout) e OpenSearch
 3. OpenTelemetry Logging SDK envia structured logs para Collector
 4. Collector exporta para console (debug)
 
 **Enriquecimento de logs:**
+
 - Service name
 - Trace/span IDs (correlation)
 - Redação de dados sensíveis (CPF, email, password, etc.)
@@ -143,6 +153,7 @@ Todas as aplicações já estão configuradas via `appsettings.json`:
 ## Como Usar
 
 ### 1. Iniciar a Stack
+
 ```bash
 cd infra
 podman-compose up -d
@@ -150,18 +161,19 @@ podman-compose up -d
 
 ### 2. Acessar as UIs
 
-- **Jaeger (Traces):** http://localhost:16686
+- **Jaeger (Traces):** <http://localhost:16686>
   - Selecione o serviço (ex: `MyNewLittleBank-API`)
   - Visualize traces de requisições HTTP, queries SQL, etc.
 
-- **Prometheus (Metrics):** http://localhost:9090
+- **Prometheus (Metrics):** <http://localhost:9090>
   - Consultas PromQL
   - Exemplo: `rate(http_server_duration_milliseconds_count[5m])`
 
-- **OTel Collector zPages:** http://localhost:55679
+- **OTel Collector zPages:** <http://localhost:55679>
   - Debug de pipelines e receivers
 
 ### 3. Verificar Health
+
 ```bash
 # Collector health
 curl http://localhost:13133
@@ -178,21 +190,25 @@ curl http://localhost:8888/metrics
 ### Prometheus (PromQL)
 
 **Request rate por serviço:**
+
 ```promql
 rate(http_server_duration_milliseconds_count[5m])
 ```
 
 **P95 latency:**
+
 ```promql
 histogram_quantile(0.95, rate(http_server_duration_milliseconds_bucket[5m]))
 ```
 
 **Garbage Collection:**
+
 ```promql
 rate(process_runtime_dotnet_gc_collections_count_total[5m])
 ```
 
 **Memory usage:**
+
 ```promql
 process_runtime_dotnet_gc_heap_size_bytes
 ```
@@ -211,16 +227,19 @@ process_runtime_dotnet_gc_heap_size_bytes
 ### Aplicações não enviam telemetria
 
 1. Verificar logs do Collector:
+
 ```bash
 podman logs otel-collector
 ```
 
 2. Verificar configuração OTLP nas aplicações:
+
 ```bash
 podman logs api | grep -i "otlp\|opentelemetry"
 ```
 
 3. Testar conectividade:
+
 ```bash
 podman exec api curl -v http://otel-collector:4317
 ```
@@ -228,10 +247,11 @@ podman exec api curl -v http://otel-collector:4317
 ### Métricas não aparecem no Prometheus
 
 1. Verificar targets no Prometheus:
-   - http://localhost:9090/targets
+   - <http://localhost:9090/targets>
    - Status deve ser "UP"
 
 2. Verificar endpoint do Collector:
+
 ```bash
 curl http://localhost:8889/metrics | grep mynewlittlebank
 ```
@@ -239,9 +259,10 @@ curl http://localhost:8889/metrics | grep mynewlittlebank
 ### Traces não aparecem no Jaeger
 
 1. Verificar pipeline de traces no Collector:
-   - http://localhost:55679/debug/tracez
+   - <http://localhost:55679/debug/tracez>
 
 2. Verificar se Jaeger está recebendo:
+
 ```bash
 podman logs jaeger | grep -i "span"
 ```
