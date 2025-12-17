@@ -1,0 +1,16 @@
+global using Xunit;
+global using AwesomeAssertions;
+global using Moq;
+global using System;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using Microsoft.AspNetCore.Mvc.Testing;
+global using System.Net.Http;
+global using System.Text.Json;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.AspNetCore.Hosting;
+global using Microsoft.AspNetCore.Http;
+global using System.Text;
+global using Shared;
+global using API.Contracts.Responses;
+global using Domain.Common;

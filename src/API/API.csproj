@@ -6,6 +6,9 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="API.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\\Domain\\Domain.csproj" />
     <ProjectReference Include="..\\Infra.Database\\Infra.Database.csproj" />
     <ProjectReference Include="..\\Shared\\Shared.csproj" />

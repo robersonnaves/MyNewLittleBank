@@ -73,3 +73,8 @@ app.MapClientEndpoints();
 app.MapAccountEndpoints();
 
 await app.RunAsync().ConfigureAwait(false);
+
+public partial class Program
+{
+    // Make Program visible for integration testing
+}
