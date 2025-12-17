@@ -54,7 +54,7 @@ public sealed class IntegrationInfrastructureFixture : IAsyncLifetime
         await connection.OpenAsync().ConfigureAwait(false);
         await using var command = new NpgsqlCommand(sql, connection);
         var result = await command.ExecuteScalarAsync().ConfigureAwait(false);
-        return Convert.ToInt32(result);
+        return Convert.ToInt32(result, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static void ApplyContainerRuntimeSettings()

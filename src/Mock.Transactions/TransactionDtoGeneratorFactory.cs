@@ -100,7 +100,7 @@ public sealed class TransactionDtoGeneratorFactory
             cardNumber = $"5{faker.Random.Long(100000000000000, 999999999999999)}";
         }
 
-        cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+        cardNumber = cardNumber.Replace(" ", "", StringComparison.Ordinal).Replace("-", "", StringComparison.Ordinal);
 
         if (string.IsNullOrWhiteSpace(cardNumber))
         {

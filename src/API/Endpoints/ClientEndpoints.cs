@@ -85,7 +85,6 @@ internal static class ClientEndpoints
         return TypedResults.Ok(ClientResponse.FromDomain(result.Value!));
     }
 
-    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Mapping failures are converted to bad request responses for HTTP clients.")]
     private static async Task<Results<Ok<ClientResponse>, NotFound<ErrorResponse>, BadRequest<ErrorResponse>>> GetClientByCpfAsync(
         string cpf,
         IGetClientByCpfHandler handler,
@@ -108,9 +107,19 @@ internal static class ClientEndpoints
 
             return TypedResults.Ok(ClientResponse.FromDomain(result.Value!));
         }
+        catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return TypedResults.BadRequest(new ErrorResponse("client_lookup_failed"));
+        }
+        catch (InvalidOperationException)
+        {
+            return TypedResults.BadRequest(new ErrorResponse("client_lookup_failed"));
+        }
+#pragma warning disable CA1031 // Mapping failures are converted to bad request responses for HTTP clients
         catch (Exception)
         {
             return TypedResults.BadRequest(new ErrorResponse("client_lookup_failed"));
         }
+#pragma warning restore CA1031
     }
 }

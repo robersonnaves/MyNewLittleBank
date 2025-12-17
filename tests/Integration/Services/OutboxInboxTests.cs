@@ -32,33 +32,33 @@ public sealed class OutboxInboxTests : IntegrationTestBase
         await using (var setupScope = provider.CreateAsyncScope())
         {
             var context = setupScope.ServiceProvider.GetRequiredService<MyNewLittleBankContext>();
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+            await context.Database.EnsureCreatedAsync();
 
             var outboxMessage = OutboxMessage.Create(Guid.NewGuid(), "test.message", """{"hello":"world"}""", DateTime.UtcNow).Value!;
             messageId = outboxMessage.MessageId;
-            await context.OutboxMessages.AddAsync(outboxMessage).ConfigureAwait(false);
-            await context.SaveChangesAsync().ConfigureAwait(false);
+            await context.OutboxMessages.AddAsync(outboxMessage);
+            await context.SaveChangesAsync();
         }
 
         // Dispatch phase: Execute OutboxDispatcher with isolated context
         await using (var dispatchScope = provider.CreateAsyncScope())
         {
             publisher = dispatchScope.ServiceProvider.GetRequiredService<TestPublisher>();
-            var dispatcher = new OutboxDispatcher(
+            using var dispatcher = new OutboxDispatcher(
                 () => dispatchScope.ServiceProvider.GetRequiredService<MyNewLittleBankContext>(),
                 publisher,
                 dispatchScope.ServiceProvider.GetRequiredService<IOptions<OutboxOptions>>(),
                 dispatchScope.ServiceProvider.GetRequiredService<IOptions<Infra.Message.RabbitOptions>>(),
                 NullLogger<OutboxDispatcher>.Instance);
 
-            await dispatcher.DispatchPendingAsync(CancellationToken.None).ConfigureAwait(false);
+            await dispatcher.DispatchPendingAsync(CancellationToken.None);
         }
 
         // Verify phase: Query results with fresh context instance
         await using (var verifyScope = provider.CreateAsyncScope())
         {
             var verifyContext = verifyScope.ServiceProvider.GetRequiredService<MyNewLittleBankContext>();
-            var persisted = await verifyContext.OutboxMessages.SingleAsync(message => message.MessageId == messageId).ConfigureAwait(false);
+            var persisted = await verifyContext.OutboxMessages.SingleAsync(message => message.MessageId == messageId);
             persisted.Status.Should().Be(OutboxMessageStatus.Sent);
             persisted.SentOnUtc.Should().NotBeNull();
             publisher.PublishedMessages.Should().ContainSingle(tuple => tuple.MessageType == "test.message");
@@ -76,7 +76,7 @@ public sealed class OutboxInboxTests : IntegrationTestBase
         await using (var setupScope = provider.CreateAsyncScope())
         {
             var context = setupScope.ServiceProvider.GetRequiredService<MyNewLittleBankContext>();
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+            await context.Database.EnsureCreatedAsync();
         }
 
         // Execute phase: Create store with root provider factory to avoid scope issues
@@ -86,8 +86,8 @@ public sealed class OutboxInboxTests : IntegrationTestBase
             return scope.ServiceProvider.GetRequiredService<MyNewLittleBankContext>();
         });
 
-        var first = await store.TryMarkProcessedAsync(messageId, "integration-consumer", CancellationToken.None).ConfigureAwait(false);
-        var duplicate = await store.TryMarkProcessedAsync(messageId, "integration-consumer", CancellationToken.None).ConfigureAwait(false);
+        var first = await store.TryMarkProcessedAsync(messageId, "integration-consumer", CancellationToken.None);
+        var duplicate = await store.TryMarkProcessedAsync(messageId, "integration-consumer", CancellationToken.None);
 
         first.Should().BeTrue();
         duplicate.Should().BeFalse();

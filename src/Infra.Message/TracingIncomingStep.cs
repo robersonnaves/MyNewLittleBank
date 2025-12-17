@@ -72,14 +72,23 @@ public sealed class TracingIncomingStep : IIncomingStep
             
             activity.SetStatus(ActivityStatusCode.Ok);
         }
+        catch (TaskCanceledException) when (context.Load<Rebus.Messages.Message>().Headers.TryGetValue("cancellation-token", out _))
+        {
+            activity.SetStatus(ActivityStatusCode.Error, "Operation cancelled");
+            activity.AddTag("exception.type", typeof(TaskCanceledException).FullName);
+            throw;
+        }
+#pragma warning disable CA1031 // This is a tracing middleware that must capture any exception type for observability
         catch (Exception ex)
         {
+            // Catching all exceptions intentionally - this is a tracing middleware that must capture any exception type for observability
             activity.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity.AddTag("exception.type", ex.GetType().FullName);
             activity.AddTag("exception.message", ex.Message);
             activity.AddTag("exception.stacktrace", ex.StackTrace);
             throw;
         }
+#pragma warning restore CA1031
         finally
         {
             activity.Stop();

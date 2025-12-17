@@ -14,7 +14,7 @@ public sealed class InfrastructureSmokeTests : IntegrationTestBase
     [Fact]
     public async Task Postgres_container_should_accept_connections()
     {
-        var result = await Fixture.ExecuteScalarAsync("SELECT 1;").ConfigureAwait(false);
+        var result = await Fixture.ExecuteScalarAsync("SELECT 1;");
 
         result.Should().Be(1);
     }

@@ -46,10 +46,18 @@ public sealed class RebusMessagingBus : IMessagingBus
             // Passar headers fornecidos - o middleware adicionará os headers de tracing
             await _bus.Advanced.Topics.Publish(envelope.RoutingKey, envelope, headers).ConfigureAwait(false);
         }
+        catch (TaskCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Message publish cancelled for type {MessageType}, routing key {RoutingKey}", envelope.MessageType, envelope.RoutingKey);
+            throw;
+        }
+#pragma warning disable CA1031 // Rebus can throw various exception types and we need to log and rethrow for proper error handling
         catch (Exception ex)
         {
+            // Catching all exceptions intentionally - Rebus can throw various exception types and we need to log and rethrow for proper error handling
             PublishFailed(_logger, envelope.MessageType, envelope.RoutingKey, envelope.RoutingKey, ex);
             throw;
         }
+#pragma warning restore CA1031
     }
 }

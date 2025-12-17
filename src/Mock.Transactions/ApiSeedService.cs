@@ -132,7 +132,7 @@ public sealed class ApiSeedService
     private static string GenerateAccountNumber(int clientIndex, int accountIndex)
     {
         var number = 10000000 + (clientIndex * 100) + accountIndex;
-        return number.ToString();
+        return number.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static string GenerateCpf(int seed)
@@ -274,11 +274,29 @@ public sealed class ApiSeedService
                 seed.Cpf, response.StatusCode, errorBodyForOtherStatus);
             return null;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Unhandled exception creating client with CPF={Cpf}.", seed.Cpf);
+            _logger.LogError(ex, "HTTP request failed while creating client with CPF={Cpf}.", seed.Cpf);
             return null;
         }
+        catch (TaskCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Client creation cancelled for CPF={Cpf}.", seed.Cpf);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize client response for CPF={Cpf}.", seed.Cpf);
+            return null;
+        }
+#pragma warning disable CA1031 // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+        catch (Exception ex)
+        {
+            // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+            _logger.LogError(ex, "Unexpected error creating client with CPF={Cpf}.", seed.Cpf);
+            return null;
+        }
+#pragma warning restore CA1031
     }
 
     private async Task<ClientResponse?> GetClientByCpfAsync(string cpf, CancellationToken cancellationToken)
@@ -286,7 +304,7 @@ public sealed class ApiSeedService
         _logger.LogDebug("Attempting to retrieve client by CPF={Cpf}", cpf);
         try
         {
-            var response = await _httpClient.GetAsync($"clients/cpf/{cpf}", cancellationToken).ConfigureAwait(false);
+            var response = await _httpClient.GetAsync(new Uri($"clients/cpf/{cpf}", UriKind.Relative), cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 _logger.LogWarning("Client with CPF={Cpf} not found when attempting reuse.", cpf);
@@ -306,11 +324,29 @@ public sealed class ApiSeedService
             _logger.LogDebug("Successfully retrieved client with CPF={Cpf}, Id={ClientId}", cpf, client?.Id);
             return client;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Unhandled exception fetching client by CPF={Cpf}.", cpf);
+            _logger.LogError(ex, "HTTP request failed while retrieving client by CPF={Cpf}.", cpf);
             return null;
         }
+        catch (TaskCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Client retrieval cancelled for CPF={Cpf}.", cpf);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize client response for CPF={Cpf}.", cpf);
+            return null;
+        }
+#pragma warning disable CA1031 // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+        catch (Exception ex)
+        {
+            // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+            _logger.LogError(ex, "Unexpected error fetching client by CPF={Cpf}.", cpf);
+            return null;
+        }
+#pragma warning restore CA1031
     }
 
     private async Task<AccountResponse?> GetOrCreateAccountAsync(Guid clientId, string accountNumber, decimal initialBalance, bool reuseExisting, CancellationToken cancellationToken)
@@ -383,11 +419,29 @@ public sealed class ApiSeedService
                 accountNumber, clientId, response.StatusCode, errorBodyForOtherStatus);
             return null;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Unhandled exception creating account {AccountNumber} for ClientId={ClientId}.", accountNumber, clientId);
+            _logger.LogError(ex, "HTTP request failed while creating account {AccountNumber} for ClientId={ClientId}.", accountNumber, clientId);
             return null;
         }
+        catch (TaskCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Account creation cancelled for AccountNumber={AccountNumber}, ClientId={ClientId}.", accountNumber, clientId);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize account response for AccountNumber={AccountNumber}.", accountNumber);
+            return null;
+        }
+#pragma warning disable CA1031 // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+        catch (Exception ex)
+        {
+            // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+            _logger.LogError(ex, "Unexpected error creating account {AccountNumber} for ClientId={ClientId}.", accountNumber, clientId);
+            return null;
+        }
+#pragma warning restore CA1031
     }
 
     private async Task<AccountResponse?> GetAccountAsync(string accountNumber, CancellationToken cancellationToken)
@@ -395,7 +449,7 @@ public sealed class ApiSeedService
         _logger.LogDebug("Attempting to retrieve account with Number={AccountNumber}", accountNumber);
         try
         {
-            var response = await _httpClient.GetAsync($"accounts/{accountNumber}", cancellationToken).ConfigureAwait(false);
+            var response = await _httpClient.GetAsync(new Uri($"accounts/{accountNumber}", UriKind.Relative), cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 _logger.LogDebug("Account with Number={AccountNumber} not found", accountNumber);
@@ -415,11 +469,29 @@ public sealed class ApiSeedService
             _logger.LogDebug("Successfully retrieved account with Number={AccountNumber}, Id={AccountId}", accountNumber, account?.Id);
             return account;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Unhandled exception fetching account {AccountNumber}.", accountNumber);
+            _logger.LogError(ex, "HTTP request failed while retrieving account {AccountNumber}.", accountNumber);
             return null;
         }
+        catch (TaskCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Account retrieval cancelled for AccountNumber={AccountNumber}.", accountNumber);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to deserialize account response for AccountNumber={AccountNumber}.", accountNumber);
+            return null;
+        }
+#pragma warning disable CA1031 // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+        catch (Exception ex)
+        {
+            // Catching all exceptions intentionally to ensure service resilience - any unexpected error should be logged and handled gracefully
+            _logger.LogError(ex, "Unexpected error fetching account {AccountNumber}.", accountNumber);
+            return null;
+        }
+#pragma warning restore CA1031
     }
 
     private async Task<string> ReadErrorResponseBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -434,18 +506,33 @@ public sealed class ApiSeedService
             var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             return string.IsNullOrWhiteSpace(content) ? "[Empty response body]" : content;
         }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "HTTP request failed while reading error response body");
+            return $"[Error reading response body: {ex.Message}]";
+        }
+        catch (TaskCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Reading error response body cancelled");
+            return "[Error reading response body: Operation cancelled]";
+        }
+#pragma warning disable CA1031 // Catching all exceptions intentionally - this is a fallback method that must not throw
         catch (Exception ex)
         {
+            // Catching all exceptions intentionally - this is a fallback method that must not throw
             _logger.LogWarning(ex, "Failed to read error response body");
             return $"[Error reading response body: {ex.Message}]";
         }
+#pragma warning restore CA1031
     }
 
     private sealed record SeedClient(string Cpf, string Name, string Email, string MobileNumber);
+#pragma warning disable CA1812 // Record types are instantiated via JSON deserialization
     private sealed record ApiCreateClientRequest(string Cpf, string Name, string Email, string MobileNumber);
     private sealed record ApiCreateAccountRequest(Guid ClientId, string AccountNumber, decimal InitialBalance);
     private sealed record ClientResponse(Guid Id, string Name, string Email, string Cpf, string MobileNumber);
     private sealed record AccountResponse(Guid Id, Guid ClientId, string AccountNumber, decimal Balance, DateTime OpenedAt);
+#pragma warning restore CA1812
 
     private static IReadOnlyList<string> CreatePixKeysForAccount(Guid clientId, string accountNumber)
     {

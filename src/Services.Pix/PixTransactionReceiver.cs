@@ -29,6 +29,11 @@ public sealed class PixTransactionReceiver : IMessageConsumer
             LogLevel.Debug,
             new EventId(3, nameof(IgnoredMessageType)),
             "Ignoring non-transaction message type {MessageType} in Pix receiver");
+    private static readonly Action<ILogger, string, Exception?> DeserializationFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(4, nameof(DeserializationFailed)),
+            "Pix transaction payload could not be deserialized for routing key {RoutingKey}");
 
     public PixTransactionReceiver(
         IOptions<RabbitOptions> options,
@@ -69,7 +74,7 @@ public sealed class PixTransactionReceiver : IMessageConsumer
         var message = JsonSerializer.Deserialize(envelope.Payload, PixTransactionJsonContext.Default.PixTransactionDto);
         if (message is null)
         {
-            _logger.LogWarning("Pix transaction payload could not be deserialized for routing key {RoutingKey}", envelope.RoutingKey);
+            DeserializationFailed(_logger, envelope.RoutingKey, null);
             return;
         }
 

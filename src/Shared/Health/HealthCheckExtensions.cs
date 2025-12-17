@@ -11,6 +11,9 @@ namespace Shared.Health;
 
 public static class HealthCheckExtensions
 {
+    private static readonly string[] ReadyTags = { "ready" };
+    private static readonly string[] LiveTags = { "live" };
+
     public static IHealthChecksBuilder AddInfrastructureHealthChecks(this IServiceCollection services, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -21,16 +24,16 @@ public static class HealthCheckExtensions
         var postgresConnection = configuration.GetConnectionString("DefaultConnection");
         if (!string.IsNullOrWhiteSpace(postgresConnection))
         {
-            builder.AddCheck("postgres", new NpgsqlHealthCheck(postgresConnection), tags: new[] { "ready" });
+            builder.AddCheck("postgres", new NpgsqlHealthCheck(postgresConnection), tags: ReadyTags);
         }
 
         var rabbitSection = configuration.GetSection("RabbitMQ");
         if (rabbitSection.Exists())
         {
-            builder.AddCheck("rabbitmq", new RabbitMqHealthCheck(rabbitSection), tags: new[] { "ready" });
+            builder.AddCheck("rabbitmq", new RabbitMqHealthCheck(rabbitSection), tags: ReadyTags);
         }
 
-        builder.AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" });
+        builder.AddCheck("self", () => HealthCheckResult.Healthy(), tags: LiveTags);
 
         return builder;
     }
@@ -48,14 +51,27 @@ public static class HealthCheckExtensions
         {
             try
             {
+#pragma warning disable CA2007 // await using handles ConfigureAwait automatically
                 await using var connection = new NpgsqlConnection(_connectionString);
+#pragma warning restore CA2007
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 return HealthCheckResult.Healthy();
             }
-            catch (Exception ex)
+            catch (NpgsqlException ex)
             {
                 return HealthCheckResult.Unhealthy("Database connection failed", ex);
             }
+            catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return HealthCheckResult.Unhealthy("Database health check cancelled");
+            }
+#pragma warning disable CA1031 // Health checks must catch all exceptions to return a result even for unexpected errors
+            catch (Exception ex)
+            {
+                // Catching all exceptions intentionally - health checks must return a result even for unexpected errors
+                return HealthCheckResult.Unhealthy("Database connection failed", ex);
+            }
+#pragma warning restore CA1031
         }
     }
 
@@ -86,18 +102,37 @@ public static class HealthCheckExtensions
         {
             try
             {
+#pragma warning disable CA2007 // await using handles ConfigureAwait automatically
                 await using var connection = await _factory.CreateConnectionAsync(cancellationToken).ConfigureAwait(false);
+#pragma warning restore CA2007
                 var options = new CreateChannelOptions(
                     publisherConfirmationsEnabled: false,
                     publisherConfirmationTrackingEnabled: false);
+#pragma warning disable CA2007 // await using handles ConfigureAwait automatically
                 await using var channel = await connection.CreateChannelAsync(options, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CA2007
                 _ = channel.IsOpen; // ensure channel negotiated
                 return HealthCheckResult.Healthy();
             }
-            catch (Exception ex)
+            catch (RabbitMQ.Client.Exceptions.BrokerUnreachableException ex)
+            {
+                return HealthCheckResult.Unhealthy("RabbitMQ broker unreachable", ex);
+            }
+            catch (RabbitMQ.Client.Exceptions.ConnectFailureException ex)
             {
                 return HealthCheckResult.Unhealthy("RabbitMQ connection failed", ex);
             }
+            catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return HealthCheckResult.Unhealthy("RabbitMQ health check cancelled");
+            }
+#pragma warning disable CA1031 // Health checks must catch all exceptions to return a result even for unexpected errors
+            catch (Exception ex)
+            {
+                // Catching all exceptions intentionally - health checks must return a result even for unexpected errors
+                return HealthCheckResult.Unhealthy("RabbitMQ connection failed", ex);
+            }
+#pragma warning restore CA1031
         }
     }
 }

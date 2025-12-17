@@ -21,6 +21,7 @@ public abstract class Transaction
     public TransactionStatus Status { get; private set; }
     public DateTime OccurredOn { get; private set; }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality", "S1144:Unused private types or members should be removed", Justification = "Setter used by EF Core materialization.")]
     public uint Xmin { get; private set; }
 
     public Transaction ChangeStatus(TransactionStatus status)

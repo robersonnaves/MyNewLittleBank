@@ -10,7 +10,6 @@ using Shared.Observability;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
-const string serviceName = "mock.transactions";
 
 builder.AddSerilogLogging();
 builder.AddObservability();

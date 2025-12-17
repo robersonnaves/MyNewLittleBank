@@ -10,7 +10,6 @@ using Shared.Health;
 using Shared.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
-const string serviceName = "services.heartbeats";
 
 builder.AddSerilogLogging();
 builder.AddObservability();

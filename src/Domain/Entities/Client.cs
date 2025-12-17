@@ -22,6 +22,7 @@ public sealed class Client
     public string MobileNumber { get; private set; }
     public IReadOnlyCollection<BankAccount> BankAccounts => _bankAccounts.AsReadOnly();
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality", "S1144:Unused private types or members should be removed", Justification = "Setter used by EF Core materialization.")]
     public uint Xmin { get; private set; }
 
     public static Result<Client> Create(ClientId id, Cpf cpf, string name, string email, string mobileNumber)

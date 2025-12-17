@@ -147,12 +147,21 @@ public sealed class MockTransactionsWorker : BackgroundService
                         continue;
                     }
                 }
-                catch (Exception ex)
+                catch (InvalidOperationException ex)
                 {
-                    _logger.LogError(ex, "Failed to regenerate transaction. Type: {Type}", effectiveType);
+                    _logger.LogError(ex, "Generator reported invalid state while regenerating transaction. Type: {Type}", effectiveType);
                     await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
                     continue;
                 }
+#pragma warning disable CA1031 // Catching all exceptions intentionally - background service must continue running even if transaction generation fails
+                catch (Exception ex)
+                {
+                    // Catching all exceptions intentionally - background service must continue running even if transaction generation fails
+                    _logger.LogError(ex, "Unexpected error regenerating transaction. Type: {Type}", effectiveType);
+                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                    continue;
+                }
+#pragma warning restore CA1031
             }
 
             // Validate DTO-specific fields
@@ -165,14 +174,11 @@ public sealed class MockTransactionsWorker : BackgroundService
                     continue;
                 }
             }
-            else if (dto is CardTransactionDto cardDto)
+            else if (dto is CardTransactionDto cardDto && string.IsNullOrWhiteSpace(cardDto.CardNumber))
             {
-                if (string.IsNullOrWhiteSpace(cardDto.CardNumber))
-                {
-                    _logger.LogError("Skipping Card publish due to missing card number.");
-                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
-                    continue;
-                }
+                _logger.LogError("Skipping Card publish due to missing card number.");
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
+                continue;
             }
 
             // Defense-in-depth: Validate TransactionId in serialized JSON (single parse, no duplicate)

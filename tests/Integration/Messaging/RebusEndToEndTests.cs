@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,27 +111,27 @@ public sealed class RebusEndToEndTests : IClassFixture<IntegrationInfrastructure
         
         await using (var context = independentContextFactory())
         {
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+            await context.Database.EnsureCreatedAsync();
             var outbox = Infra.Database.Entities.OutboxMessage.Create(Guid.NewGuid(), "card.message", """{"id":3}""", DateTime.UtcNow).Value!;
-            await context.OutboxMessages.AddAsync(outbox).ConfigureAwait(false);
-            await context.SaveChangesAsync().ConfigureAwait(false);
+            await context.OutboxMessages.AddAsync(outbox);
+            await context.SaveChangesAsync();
         }
 
-        var dispatcher = new OutboxDispatcher(
+        using var dispatcher = new OutboxDispatcher(
             independentContextFactory,
             provider.GetRequiredService<IMessagePublisher>(),
             Microsoft.Extensions.Options.Options.Create(new OutboxOptions { BatchSize = 10, PollInterval = TimeSpan.FromMilliseconds(10) }),
             Microsoft.Extensions.Options.Options.Create(new Infra.Message.RabbitOptions { RoutingKey = routingKey }),
             NullLogger<OutboxDispatcher>.Instance);
 
-        await dispatcher.DispatchPendingAsync(CancellationToken.None).ConfigureAwait(false);
+        await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
         var received = await (consumer ?? throw new InvalidOperationException("Consumer not resolved")).WaitAsync();
         received.RoutingKey.Should().Be(routingKey);
 
         await using (var verifyContext = independentContextFactory())
         {
-            var stored = await verifyContext.OutboxMessages.SingleAsync().ConfigureAwait(false);
+            var stored = await verifyContext.OutboxMessages.SingleAsync();
             stored.Status.Should().Be(Infra.Database.Entities.OutboxMessageStatus.Sent);
         }
     }
@@ -195,7 +196,7 @@ public sealed class RebusEndToEndTests : IClassFixture<IntegrationInfrastructure
 
         var provider = services.BuildServiceProvider();
         // Inicia os hosted services, que automaticamente iniciam o bus Rebus
-        await StartHostedServicesAsync(provider).ConfigureAwait(false);
+        await StartHostedServicesAsync(provider);
         return provider;
     }
 
@@ -216,7 +217,7 @@ public sealed class RebusEndToEndTests : IClassFixture<IntegrationInfrastructure
         var hostedServices = provider.GetServices<IHostedService>();
         foreach (var service in hostedServices)
         {
-            await service.StartAsync(CancellationToken.None).ConfigureAwait(false);
+            await service.StartAsync(CancellationToken.None);
         }
     }
 
@@ -227,7 +228,7 @@ public sealed class RebusEndToEndTests : IClassFixture<IntegrationInfrastructure
         return new Dictionary<string, string?>
         {
             ["RabbitMQ:HostName"] = uri.Host,
-            ["RabbitMQ:Port"] = uri.Port.ToString(),
+            ["RabbitMQ:Port"] = uri.Port.ToString(CultureInfo.InvariantCulture),
             ["RabbitMQ:UserName"] = uri.UserInfo.Split(':').FirstOrDefault() ?? "guest",
             ["RabbitMQ:Password"] = uri.UserInfo.Split(':').Skip(1).FirstOrDefault() ?? "guest",
             ["RabbitMQ:VirtualHost"] = uri.AbsolutePath == "/" ? "/" : uri.AbsolutePath,
@@ -239,7 +240,7 @@ public sealed class RebusEndToEndTests : IClassFixture<IntegrationInfrastructure
             ["RabbitMQ:DelayQueue"] = $"delay.queue.{queueSuffix}",
             ["RabbitMQ:DeadLetterQueue"] = $"dlq.queue.{queueSuffix}",
             ["RabbitMQ:PrefetchCount"] = "5",
-            ["RabbitMQ:MaxRetries"] = (maxRetries ?? 3).ToString(),
+            ["RabbitMQ:MaxRetries"] = (maxRetries ?? 3).ToString(CultureInfo.InvariantCulture),
             ["RabbitMQ:RetryDelayMilliseconds"] = "500"
         };
     }
@@ -250,7 +251,7 @@ public sealed class RebusEndToEndTests : IClassFixture<IntegrationInfrastructure
         return new Dictionary<string, string?>
         {
             ["RabbitMQ:HostName"] = uri.Host,
-            ["RabbitMQ:Port"] = uri.Port.ToString(),
+            ["RabbitMQ:Port"] = uri.Port.ToString(CultureInfo.InvariantCulture),
             ["RabbitMQ:UserName"] = uri.UserInfo.Split(':').FirstOrDefault() ?? "guest",
             ["RabbitMQ:Password"] = uri.UserInfo.Split(':').Skip(1).FirstOrDefault() ?? "guest",
             ["RabbitMQ:VirtualHost"] = uri.AbsolutePath == "/" ? "/" : uri.AbsolutePath,

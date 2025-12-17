@@ -17,10 +17,20 @@ public sealed class ProcessTransactionsHandlerTests
     {
         var account = CreateAccount(150m);
         var bankAccounts = new FakeBankAccountRepository(account);
+        var client = CreateClient(account.ClientId);
+        var clients = new FakeClientRepository(client);
         var transactions = new FakeTransactionRepository();
+        var notificationSender = new FakeNotificationSender();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(
+            bankAccounts,
+            bankAccounts,
+            clients,
+            transactions,
+            notificationSender,
+            outbox,
+            uow);
 
         var dto = new PixTransactionDto(
             Guid.NewGuid(),
@@ -43,6 +53,7 @@ public sealed class ProcessTransactionsHandlerTests
         ParseOutbox(outbox.Messages.Single().Payload).GetProperty("balanceAfterOperation").GetDecimal().Should().Be(100m);
         bankAccounts.UpdateCalls.Should().Be(1);
         uow.SaveChangesCalls.Should().Be(1);
+        notificationSender.SentNotifications.Should().BeEmpty();
     }
 
     [Fact]
@@ -50,10 +61,20 @@ public sealed class ProcessTransactionsHandlerTests
     {
         var account = CreateAccount(10m);
         var bankAccounts = new FakeBankAccountRepository(account);
+        var client = CreateClient(account.ClientId, "39053344705");
+        var clients = new FakeClientRepository(client);
         var transactions = new FakeTransactionRepository();
+        var notificationSender = new FakeNotificationSender();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(
+            bankAccounts,
+            bankAccounts,
+            clients,
+            transactions,
+            notificationSender,
+            outbox,
+            uow);
 
         var dto = new CardTransactionDto(
             Guid.NewGuid(),
@@ -68,19 +89,36 @@ public sealed class ProcessTransactionsHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be("insufficient_funds");
+        account.Balance.Value.Should().Be(10m);
         transactions.Items.Should().BeEmpty();
         outbox.Messages.Should().BeEmpty();
         uow.SaveChangesCalls.Should().Be(0);
+        notificationSender.SentNotifications.Should().HaveCount(1);
+        var sent = notificationSender.SentNotifications.Single();
+        sent.Cpf.Should().Be(client.Cpf.Value);
+        sent.AccountNumber.Should().Be(account.AccountNumber.Value);
+        sent.AttemptedAmount.Should().Be(25m);
+        sent.AvailableBalance.Should().Be(10m);
+        sent.Reason.Should().Be("insufficient_funds");
     }
 
     [Fact]
     public async Task HandleAsync_MoneyTransaction_Should_Fail_When_Account_Not_Found()
     {
         var bankAccounts = new FakeBankAccountRepository();
+        var clients = new FakeClientRepository();
         var transactions = new FakeTransactionRepository();
+        var notificationSender = new FakeNotificationSender();
         var outbox = new FakeOutboxWriter();
         var uow = new FakeUnitOfWork();
-        var handler = new ProcessTransactionsHandler(bankAccounts, bankAccounts, transactions, outbox, uow);
+        var handler = new ProcessTransactionsHandler(
+            bankAccounts,
+            bankAccounts,
+            clients,
+            transactions,
+            notificationSender,
+            outbox,
+            uow);
 
         var dto = new MoneyTransactionDto(
             Guid.NewGuid(),
@@ -97,6 +135,46 @@ public sealed class ProcessTransactionsHandlerTests
         transactions.Items.Should().BeEmpty();
         outbox.Messages.Should().BeEmpty();
         uow.SaveChangesCalls.Should().Be(0);
+        notificationSender.SentNotifications.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_CardTransaction_Should_Return_Failure_When_Notification_Fails()
+    {
+        var account = CreateAccount(10m);
+        var bankAccounts = new FakeBankAccountRepository(account);
+        var client = CreateClient(account.ClientId, "39053344705");
+        var clients = new FakeClientRepository(client);
+        var transactions = new FakeTransactionRepository();
+        var notificationSender = new FakeNotificationSender { ShouldFail = true };
+        var outbox = new FakeOutboxWriter();
+        var uow = new FakeUnitOfWork();
+        var handler = new ProcessTransactionsHandler(
+            bankAccounts,
+            bankAccounts,
+            clients,
+            transactions,
+            notificationSender,
+            outbox,
+            uow);
+
+        var dto = new CardTransactionDto(
+            Guid.NewGuid(),
+            account.ClientId.Value,
+            account.AccountNumber.Value,
+            30m,
+            "4111111111111111",
+            TransactionStatus.Pending,
+            DateTime.UtcNow);
+
+        var result = await handler.HandleAsync(dto, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be("insufficient_funds");
+        transactions.Items.Should().BeEmpty();
+        outbox.Messages.Should().BeEmpty();
+        uow.SaveChangesCalls.Should().Be(0);
+        notificationSender.SentNotifications.Should().HaveCount(1);
     }
 
     private static JsonElement ParseOutbox(string payload) =>
@@ -108,6 +186,12 @@ public sealed class ProcessTransactionsHandlerTests
         var accountNumber = AccountNumber.TryCreate("123456").Value!;
         var balance = Money.TryCreate(initialBalance).Value!;
         return BankAccount.Open(clientId, accountNumber, balance).Value!;
+    }
+
+    private static Client CreateClient(ClientId clientId, string cpf = "39053344705")
+    {
+        var cpfValue = Cpf.TryCreate(cpf).Value!;
+        return Client.Create(clientId, cpfValue, "Test User", "user@test.com", "11999999999").Value!;
     }
 
     private sealed class FakeBankAccountRepository :
@@ -186,6 +270,39 @@ public sealed class ProcessTransactionsHandlerTests
         }
     }
 
+    private sealed class FakeClientRepository : IReadRepository<Client>
+    {
+        private readonly List<Client> _items;
+
+        public FakeClientRepository(params Client[] items)
+        {
+            _items = items.ToList();
+        }
+
+        public Task<Client?> GetByIdAsync(object[] keyValues, CancellationToken cancellationToken = default)
+        {
+            var key = keyValues[0];
+            Guid id = key switch
+            {
+                Guid guid => guid,
+                ClientId clientId => clientId.Value,
+                _ => throw new InvalidCastException($"Unsupported key type '{key.GetType().Name}'.")
+            };
+
+            var client = _items.FirstOrDefault(item => item.Id.Value == id);
+            return Task.FromResult<Client?>(client);
+        }
+
+        public Task<IReadOnlyList<Client>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult((IReadOnlyList<Client>)_items.ToList());
+
+        public Task<IReadOnlyList<Client>> ListAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
+            Task.FromResult((IReadOnlyList<Client>)_items.AsQueryable().Where(predicate).ToList());
+
+        public Task<bool> ExistsAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items.AsQueryable().Any(predicate));
+    }
+
     private sealed record OutboxMessage(string MessageType, string Payload);
 
     private sealed class FakeOutboxWriter : IOutboxWriter
@@ -207,6 +324,19 @@ public sealed class ProcessTransactionsHandlerTests
         {
             SaveChangesCalls++;
             return Task.FromResult(1);
+        }
+    }
+
+    private sealed class FakeNotificationSender : INotificationSender
+    {
+        public bool ShouldFail { get; set; }
+
+        public List<InsufficientFundsNotification> SentNotifications { get; } = new();
+
+        public Task<Result> NotifyInsufficientFundsAsync(InsufficientFundsNotification notification, CancellationToken cancellationToken = default)
+        {
+            SentNotifications.Add(notification);
+            return Task.FromResult(ShouldFail ? Result.Failure("notification_send_failed") : Result.Success());
         }
     }
 }

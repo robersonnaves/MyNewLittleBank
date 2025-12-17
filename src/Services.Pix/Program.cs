@@ -9,16 +9,17 @@ using OpenTelemetry.Metrics;
 using Services.Pix;
 using Shared.Health;
 using Shared.Observability;
+using UseCases.Notifications;
 using UseCases.Transactions;
 
 var builder = WebApplication.CreateBuilder(args);
-const string serviceName = "services.pix";
 
 builder.AddSerilogLogging();
 builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
 builder.Services.AddRabbitMessaging(builder.Configuration);
+builder.Services.AddNotificationSender(builder.Configuration);
 
 builder.Services.AddScoped<IProcessTransactionsHandler, ProcessTransactionsHandler>();
 builder.Services.AddScoped<IMessageConsumer, PixTransactionReceiver>();

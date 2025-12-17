@@ -77,11 +77,18 @@ public sealed class OutboxDispatcher : BackgroundService
                 await _publisher.PublishAsync(message.MessageType, message.Payload, _rabbitOptions.RoutingKey, cancellationToken).ConfigureAwait(false);
                 message.MarkSent(DateTime.UtcNow);
             }
+            catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                OutboxDispatchFailed(_logger, message.MessageId, null);
+                message.MarkFailed();
+            }
+#pragma warning disable CA1031 // Dispatcher must capture and log failures to retry later without crashing the host
             catch (Exception ex)
             {
                 OutboxDispatchFailed(_logger, message.MessageId, ex);
                 message.MarkFailed();
             }
+#pragma warning restore CA1031
         }
 
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

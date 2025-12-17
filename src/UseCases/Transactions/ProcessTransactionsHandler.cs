@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using Domain.Common;
@@ -18,31 +19,40 @@ public interface IProcessTransactionsHandler
 
 public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
 {
+    private const string InsufficientFundsCode = "insufficient_funds";
     private const string ProcessedMessageType = "transaction.processed";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IReadRepository<BankAccount> _bankAccountReader;
     private readonly IWriteRepository<BankAccount> _bankAccountWriter;
+    private readonly IReadRepository<Client> _clientReader;
     private readonly IWriteRepository<Transaction> _transactionWriter;
+    private readonly INotificationSender _notificationSender;
     private readonly IOutboxWriter _outboxWriter;
     private readonly IUnitOfWork _unitOfWork;
 
     public ProcessTransactionsHandler(
         IReadRepository<BankAccount> bankAccountReader,
         IWriteRepository<BankAccount> bankAccountWriter,
+        IReadRepository<Client> clientReader,
         IWriteRepository<Transaction> transactionWriter,
+        INotificationSender notificationSender,
         IOutboxWriter outboxWriter,
         IUnitOfWork unitOfWork)
     {
         ArgumentNullException.ThrowIfNull(bankAccountReader);
         ArgumentNullException.ThrowIfNull(bankAccountWriter);
+        ArgumentNullException.ThrowIfNull(clientReader);
         ArgumentNullException.ThrowIfNull(transactionWriter);
+        ArgumentNullException.ThrowIfNull(notificationSender);
         ArgumentNullException.ThrowIfNull(outboxWriter);
         ArgumentNullException.ThrowIfNull(unitOfWork);
 
         _bankAccountReader = bankAccountReader;
         _bankAccountWriter = bankAccountWriter;
+        _clientReader = clientReader;
         _transactionWriter = transactionWriter;
+        _notificationSender = notificationSender;
         _outboxWriter = outboxWriter;
         _unitOfWork = unitOfWork;
     }
@@ -112,18 +122,15 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
             return Result.Failure("bank_account_not_found");
         }
 
-        Result<Money> operationResult;
-        try
-        {
-            operationResult = operation(account, transaction);
-        }
-        catch (DomainException domainException)
-        {
-            return Result.Failure(domainException.Code);
-        }
+        var operationResult = operation(account, transaction);
 
         if (operationResult.IsFailure)
         {
+            if (operationResult.Error == InsufficientFundsCode)
+            {
+                await NotifyInsufficientFundsAsync(transaction, account, cancellationToken).ConfigureAwait(false);
+            }
+
             return Result.Failure(operationResult.Error!);
         }
 
@@ -139,6 +146,27 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Result.Success();
+    }
+
+    private async Task NotifyInsufficientFundsAsync(Transaction transaction, BankAccount account, CancellationToken cancellationToken)
+    {
+        var client = await _clientReader
+            .GetByIdAsync(new object[] { transaction.ClientId }, cancellationToken)
+            .ConfigureAwait(false);
+
+        var traceId = Activity.Current?.Id ?? ActivityTraceId.CreateRandom().ToString();
+        var notification = new InsufficientFundsNotification(
+            client?.Cpf.Value ?? string.Empty,
+            account.AccountNumber.Value,
+            transaction.Id.Value,
+            transaction.Amount.Value,
+            account.Balance.Value,
+            transaction.OccurredOn,
+            traceId);
+
+        await _notificationSender
+            .NotifyInsufficientFundsAsync(notification, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<BankAccount?> FindAccountAsync(AccountNumber accountNumber, CancellationToken cancellationToken)

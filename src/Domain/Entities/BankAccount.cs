@@ -22,6 +22,7 @@ public sealed class BankAccount
     public DateTime OpenedAt { get; }
     public IReadOnlyCollection<TransactionId> Transactions => _transactions.AsReadOnly();
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality", "S1144:Unused private types or members should be removed", Justification = "Setter used by EF Core materialization.")]
     public uint Xmin { get; private set; }
 
     public static Result<BankAccount> Open(ClientId clientId, AccountNumber accountNumber, Money initialBalance)
@@ -60,7 +61,7 @@ public sealed class BankAccount
 
         if (amount > Balance)
         {
-            throw DomainException.InsufficientFunds(Balance.Value, amount.Value);
+            return Result<Money>.Failure(DomainException.InsufficientFunds(Balance.Value, amount.Value).Code);
         }
 
         Balance -= amount;

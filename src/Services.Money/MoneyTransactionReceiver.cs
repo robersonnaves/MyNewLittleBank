@@ -29,6 +29,11 @@ public sealed class MoneyTransactionReceiver : IMessageConsumer
             LogLevel.Debug,
             new EventId(3, nameof(IgnoredMessageType)),
             "Ignoring non-transaction message type {MessageType} in Money receiver");
+    private static readonly Action<ILogger, string, Exception?> DeserializationFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(4, nameof(DeserializationFailed)),
+            "Money transaction payload could not be deserialized for routing key {RoutingKey}");
 
     public MoneyTransactionReceiver(
         IOptions<RabbitOptions> options,
@@ -69,7 +74,7 @@ public sealed class MoneyTransactionReceiver : IMessageConsumer
         var message = JsonSerializer.Deserialize(envelope.Payload, MoneyTransactionJsonContext.Default.MoneyTransactionDto);
         if (message is null)
         {
-            _logger.LogWarning("Money transaction payload could not be deserialized for routing key {RoutingKey}", envelope.RoutingKey);
+            DeserializationFailed(_logger, envelope.RoutingKey, null);
             return;
         }
 

@@ -110,7 +110,10 @@ public static class ObservabilityExtensions
         // Embora seja melhor usar ApplicationMetrics ou ActivitySource estático,
         // manter registro no DI pode ajudar em alguns cenários.
         var appServiceName = builder.Configuration["OpenTelemetry:ServiceName"] ?? builder.Environment.ApplicationName;
-        builder.Services.AddSingleton(new ActivitySource(appServiceName));
+#pragma warning disable CA2000 // ActivitySource is registered as singleton and will be disposed by the DI container
+        var activitySource = new ActivitySource(appServiceName);
+#pragma warning restore CA2000
+        builder.Services.AddSingleton(activitySource);
 
         return builder;
     }

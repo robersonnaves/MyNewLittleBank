@@ -29,6 +29,11 @@ public sealed class CardTransactionReceiver : IMessageConsumer
             LogLevel.Debug,
             new EventId(3, nameof(IgnoredMessageType)),
             "Ignoring non-transaction message type {MessageType} in Card receiver");
+    private static readonly Action<ILogger, string, Exception?> DeserializationFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(4, nameof(DeserializationFailed)),
+            "Card transaction payload could not be deserialized for routing key {RoutingKey}");
 
     public CardTransactionReceiver(
         IOptions<RabbitOptions> options,
@@ -69,7 +74,7 @@ public sealed class CardTransactionReceiver : IMessageConsumer
         var message = JsonSerializer.Deserialize(envelope.Payload, CardTransactionJsonContext.Default.CardTransactionDto);
         if (message is null)
         {
-            _logger.LogWarning("Card transaction payload could not be deserialized for routing key {RoutingKey}", envelope.RoutingKey);
+            DeserializationFailed(_logger, envelope.RoutingKey, null);
             return;
         }
 

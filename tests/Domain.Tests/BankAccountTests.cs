@@ -8,7 +8,7 @@ namespace Domain.Tests;
 public class BankAccountTests
 {
     [Fact]
-    public void DebitShouldThrowWhenBalanceInsufficient()
+    public void DebitShouldReturnFailureWhenBalanceInsufficient()
     {
         var clientIdResult = ClientId.TryCreate(Guid.NewGuid());
         clientIdResult.IsSuccess.Should().BeTrue();
@@ -29,10 +29,10 @@ public class BankAccountTests
         var amountResult = Money.TryCreate(150m);
         amountResult.IsSuccess.Should().BeTrue();
 
-        var action = () => account.Debit(amountResult.Value!, TransactionId.New().Value!);
+        var result = account.Debit(amountResult.Value!, TransactionId.New().Value!);
 
-        action.Should().Throw<DomainException>()
-            .Where(ex => ex.Code == "insufficient_funds");
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be("insufficient_funds");
     }
 
     [Fact]
