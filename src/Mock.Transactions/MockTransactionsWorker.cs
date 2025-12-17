@@ -197,7 +197,7 @@ public sealed class MockTransactionsWorker : BackgroundService
             
             var messageType = $"mock.{effectiveType.ToUpperInvariant()}";
             var routingKey = string.Equals(settings.TransactionType, "all", StringComparison.OrdinalIgnoreCase) 
-                ? $"{effectiveType.ToLowerInvariant()}.transactions" 
+                ? $"{effectiveType.ToUpperInvariant()}.transactions" 
                 : settings.RoutingKey;
 
             await _publisher.PublishAsync(messageType, payload, routingKey, stoppingToken).ConfigureAwait(false);

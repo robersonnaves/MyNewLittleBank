@@ -534,7 +534,7 @@ public sealed class ApiSeedService
     private sealed record AccountResponse(Guid Id, Guid ClientId, string AccountNumber, decimal Balance, DateTime OpenedAt);
 #pragma warning restore CA1812
 
-    private static IReadOnlyList<string> CreatePixKeysForAccount(Guid clientId, string accountNumber)
+    private static string[] CreatePixKeysForAccount(Guid clientId, string accountNumber)
     {
         // Deterministic-ish keys to simulate pre-registered Pix identifiers per account
         var emailKey = $"pix-{accountNumber}@mock.example.com";
