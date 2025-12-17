@@ -47,6 +47,13 @@ public sealed class ApiSeedService
             return null;
         }
 
+        // Check if database is already seeded before attempting to create data
+        if (await IsAlreadySeededAsync(cancellationToken).ConfigureAwait(false))
+        {
+            _logger.LogInformation("Database already seeded. Loading existing data...");
+            return await LoadExistingSeededDataAsync(settings, cancellationToken).ConfigureAwait(false);
+        }
+
         var seededAccounts = new List<SeededAccount>();
 
         for (var clientIndex = 0; clientIndex < settings.Seed.Clients; clientIndex++)
@@ -161,8 +168,68 @@ public sealed class ApiSeedService
         return digit == 10 ? 0 : digit;
     }
 
+    private async Task<bool> IsAlreadySeededAsync(CancellationToken cancellationToken)
+    {
+        var firstClientSeed = BuildClientSeed(0);
+        var existingClient = await GetClientByCpfAsync(firstClientSeed.Cpf, cancellationToken).ConfigureAwait(false);
+        return existingClient is not null;
+    }
+
+    private async Task<IReadOnlyList<SeededAccount>?> LoadExistingSeededDataAsync(MockTransactionsSettings settings, CancellationToken cancellationToken)
+    {
+        var seededAccounts = new List<SeededAccount>();
+
+        for (var clientIndex = 0; clientIndex < settings.Seed.Clients; clientIndex++)
+        {
+            var clientSeed = BuildClientSeed(clientIndex);
+            var client = await GetClientByCpfAsync(clientSeed.Cpf, cancellationToken).ConfigureAwait(false);
+            
+            if (client is null)
+            {
+                _logger.LogWarning("Expected client with CPF={Cpf} (index {Index}) not found when loading existing seed data.", clientSeed.Cpf, clientIndex);
+                continue;
+            }
+
+            // Determine how many accounts this client should have
+            // Since we can't know the exact number that was created (it's random), we'll try to find accounts
+            // by checking the expected account numbers based on the range
+            var maxAccountsToCheck = settings.Seed.MaxAccountsPerClient;
+            var accountsFound = 0;
+
+            for (var accountIndex = 0; accountIndex < maxAccountsToCheck; accountIndex++)
+            {
+                var accountNumber = GenerateAccountNumber(clientIndex, accountIndex);
+                var account = await GetAccountAsync(accountNumber, cancellationToken).ConfigureAwait(false);
+                
+                if (account is not null && account.ClientId == client.Id)
+                {
+                    var pixKeys = CreatePixKeysForAccount(client.Id, account.AccountNumber);
+                    seededAccounts.Add(new SeededAccount(client.Id, account.AccountNumber, pixKeys));
+                    accountsFound++;
+                }
+            }
+
+            if (accountsFound == 0)
+            {
+                _logger.LogWarning("No accounts found for client with CPF={Cpf} (index {Index}) when loading existing seed data.", clientSeed.Cpf, clientIndex);
+            }
+        }
+
+        _logger.LogInformation(
+            "Loaded existing seed data from API at {ApiBase}. Clients={Clients}, Accounts={Accounts}.",
+            _httpClient.BaseAddress,
+            seededAccounts.Select(a => a.ClientId).Distinct().Count(),
+            seededAccounts.Count);
+
+        return seededAccounts;
+    }
+
     private async Task<ClientResponse?> GetOrCreateClientAsync(SeedClient seed, bool reuseExisting, CancellationToken cancellationToken)
     {
+        _logger.LogDebug(
+            "Attempting to create client with CPF={Cpf}, Name={Name}, Email={Email}, ReuseExisting={ReuseExisting}",
+            seed.Cpf, seed.Name, seed.Email, reuseExisting);
+
         try
         {
             var response = await _httpClient.PostAsJsonAsync("clients", new ApiCreateClientRequest(seed.Cpf, seed.Name, seed.Email, seed.MobileNumber), SerializerOptions, cancellationToken)
@@ -170,52 +237,88 @@ public sealed class ApiSeedService
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<ClientResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+                var client = await response.Content.ReadFromJsonAsync<ClientResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Successfully created client with CPF={Cpf}, Id={ClientId}", seed.Cpf, client?.Id);
+                return client;
             }
 
-            if (response.StatusCode == HttpStatusCode.Conflict && reuseExisting)
+            if (response.StatusCode == HttpStatusCode.Conflict)
             {
-                return await GetClientByCpfAsync(seed.Cpf, cancellationToken).ConfigureAwait(false);
+                _logger.LogWarning(
+                    "HTTP 409 Conflict received when creating client with CPF={Cpf}. ReuseExisting={ReuseExisting}. Client already exists in the system.",
+                    seed.Cpf, reuseExisting);
+
+                if (reuseExisting)
+                {
+                    _logger.LogInformation("ReuseExisting is enabled. Attempting to retrieve existing client with CPF={Cpf}", seed.Cpf);
+                    var existingClient = await GetClientByCpfAsync(seed.Cpf, cancellationToken).ConfigureAwait(false);
+                    if (existingClient is not null)
+                    {
+                        _logger.LogInformation("Successfully retrieved existing client with CPF={Cpf}, Id={ClientId}", seed.Cpf, existingClient.Id);
+                    }
+                    return existingClient;
+                }
+                else
+                {
+                    var errorBody = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+                    _logger.LogError(
+                        "HTTP 409 Conflict when creating client with CPF={Cpf}, but ReuseExisting={ReuseExisting} is disabled. Error response: {ErrorBody}",
+                        seed.Cpf, reuseExisting, errorBody);
+                    return null;
+                }
             }
 
-            _logger.LogError("Failed to create client {Cpf}. StatusCode={StatusCode}", seed.Cpf, response.StatusCode);
+            var errorBodyForOtherStatus = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+            _logger.LogError(
+                "Failed to create client with CPF={Cpf}. StatusCode={StatusCode}, ErrorResponse={ErrorBody}",
+                seed.Cpf, response.StatusCode, errorBodyForOtherStatus);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception creating client {Cpf}.", seed.Cpf);
+            _logger.LogError(ex, "Unhandled exception creating client with CPF={Cpf}.", seed.Cpf);
             return null;
         }
     }
 
     private async Task<ClientResponse?> GetClientByCpfAsync(string cpf, CancellationToken cancellationToken)
     {
+        _logger.LogDebug("Attempting to retrieve client by CPF={Cpf}", cpf);
         try
         {
             var response = await _httpClient.GetAsync($"clients/cpf/{cpf}", cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                _logger.LogWarning("Client with CPF {Cpf} not found when attempting reuse.", cpf);
+                _logger.LogWarning("Client with CPF={Cpf} not found when attempting reuse.", cpf);
                 return null;
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("Failed to retrieve client by CPF {Cpf}. StatusCode={StatusCode}", cpf, response.StatusCode);
+                var errorBody = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+                _logger.LogError(
+                    "Failed to retrieve client by CPF={Cpf}. StatusCode={StatusCode}, ErrorResponse={ErrorBody}",
+                    cpf, response.StatusCode, errorBody);
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<ClientResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+            var client = await response.Content.ReadFromJsonAsync<ClientResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Successfully retrieved client with CPF={Cpf}, Id={ClientId}", cpf, client?.Id);
+            return client;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception fetching client by CPF {Cpf}.", cpf);
+            _logger.LogError(ex, "Unhandled exception fetching client by CPF={Cpf}.", cpf);
             return null;
         }
     }
 
     private async Task<AccountResponse?> GetOrCreateAccountAsync(Guid clientId, string accountNumber, decimal initialBalance, bool reuseExisting, CancellationToken cancellationToken)
     {
+        _logger.LogDebug(
+            "Attempting to create account with Number={AccountNumber}, ClientId={ClientId}, InitialBalance={InitialBalance}, ReuseExisting={ReuseExisting}",
+            accountNumber, clientId, initialBalance, reuseExisting);
+
         try
         {
             var response = await _httpClient.PostAsJsonAsync(
@@ -227,62 +330,114 @@ public sealed class ApiSeedService
 
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<AccountResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+                var account = await response.Content.ReadFromJsonAsync<AccountResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Successfully created account with Number={AccountNumber}, Id={AccountId}", accountNumber, account?.Id);
+                return account;
             }
 
-            if (response.StatusCode == HttpStatusCode.Conflict && reuseExisting)
+            if (response.StatusCode == HttpStatusCode.Conflict)
             {
-                var existing = await GetAccountAsync(accountNumber, cancellationToken).ConfigureAwait(false);
-                if (existing is not null && existing.ClientId == clientId)
-                {
-                    return existing;
-                }
+                _logger.LogWarning(
+                    "HTTP 409 Conflict received when creating account with Number={AccountNumber} for ClientId={ClientId}. ReuseExisting={ReuseExisting}. Account already exists in the system.",
+                    accountNumber, clientId, reuseExisting);
 
-                _logger.LogError(
-                    "Account {AccountNumber} already exists but is linked to another client ({ExistingClientId}).",
-                    accountNumber,
-                    existing?.ClientId);
-                return null;
+                if (reuseExisting)
+                {
+                    _logger.LogInformation("ReuseExisting is enabled. Attempting to retrieve existing account with Number={AccountNumber}", accountNumber);
+                    var existing = await GetAccountAsync(accountNumber, cancellationToken).ConfigureAwait(false);
+                    if (existing is not null && existing.ClientId == clientId)
+                    {
+                        _logger.LogInformation(
+                            "Successfully retrieved existing account with Number={AccountNumber}, Id={AccountId}, ClientId={ClientId}",
+                            accountNumber, existing.Id, existing.ClientId);
+                        return existing;
+                    }
+
+                    _logger.LogError(
+                        "Account {AccountNumber} already exists but is linked to another client. Expected ClientId={ExpectedClientId}, Actual ClientId={ActualClientId}",
+                        accountNumber, clientId, existing?.ClientId);
+                    return null;
+                }
+                else
+                {
+                    var errorBody = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+                    _logger.LogError(
+                        "HTTP 409 Conflict when creating account with Number={AccountNumber}, but ReuseExisting={ReuseExisting} is disabled. Error response: {ErrorBody}",
+                        accountNumber, reuseExisting, errorBody);
+                    return null;
+                }
             }
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                _logger.LogError("Client {ClientId} not found while creating account {AccountNumber}.", clientId, accountNumber);
+                var errorBody = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+                _logger.LogError(
+                    "Client {ClientId} not found while creating account {AccountNumber}. StatusCode={StatusCode}, ErrorResponse={ErrorBody}",
+                    clientId, accountNumber, response.StatusCode, errorBody);
                 return null;
             }
 
-            _logger.LogError("Failed to create account {AccountNumber}. StatusCode={StatusCode}", accountNumber, response.StatusCode);
+            var errorBodyForOtherStatus = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+            _logger.LogError(
+                "Failed to create account {AccountNumber} for ClientId={ClientId}. StatusCode={StatusCode}, ErrorResponse={ErrorBody}",
+                accountNumber, clientId, response.StatusCode, errorBodyForOtherStatus);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception creating account {AccountNumber}.", accountNumber);
+            _logger.LogError(ex, "Unhandled exception creating account {AccountNumber} for ClientId={ClientId}.", accountNumber, clientId);
             return null;
         }
     }
 
     private async Task<AccountResponse?> GetAccountAsync(string accountNumber, CancellationToken cancellationToken)
     {
+        _logger.LogDebug("Attempting to retrieve account with Number={AccountNumber}", accountNumber);
         try
         {
             var response = await _httpClient.GetAsync($"accounts/{accountNumber}", cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
+                _logger.LogDebug("Account with Number={AccountNumber} not found", accountNumber);
                 return null;
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("Failed to retrieve account {AccountNumber}. StatusCode={StatusCode}", accountNumber, response.StatusCode);
+                var errorBody = await ReadErrorResponseBodyAsync(response, cancellationToken).ConfigureAwait(false);
+                _logger.LogError(
+                    "Failed to retrieve account {AccountNumber}. StatusCode={StatusCode}, ErrorResponse={ErrorBody}",
+                    accountNumber, response.StatusCode, errorBody);
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<AccountResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+            var account = await response.Content.ReadFromJsonAsync<AccountResponse>(SerializerOptions, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Successfully retrieved account with Number={AccountNumber}, Id={AccountId}", accountNumber, account?.Id);
+            return account;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception fetching account {AccountNumber}.", accountNumber);
             return null;
+        }
+    }
+
+    private async Task<string> ReadErrorResponseBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (response.Content is null)
+            {
+                return "[No response body]";
+            }
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return string.IsNullOrWhiteSpace(content) ? "[Empty response body]" : content;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read error response body");
+            return $"[Error reading response body: {ex.Message}]";
         }
     }
 
