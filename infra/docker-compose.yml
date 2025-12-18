@@ -192,6 +192,8 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
+      notification-receiver:
+        condition: service_started
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-S3gr3d0123}
       - RabbitMQ__HostName=rabbitmq
@@ -199,6 +201,7 @@ services:
       - RabbitMQ__Password=guest
       - RabbitMQ__Queue=queue.card.transactions
       - RabbitMQ__RoutingKey=card.transactions
+      - Notifications__BaseUrl=http://notification-receiver:8080
     restart: on-failure
     networks:
       - bank-net
@@ -236,6 +239,8 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
+      notification-receiver:
+        condition: service_started
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-S3gr3d0123}
       - RabbitMQ__HostName=rabbitmq
@@ -243,6 +248,7 @@ services:
       - RabbitMQ__Password=guest
       - RabbitMQ__Queue=queue.money.transactions
       - RabbitMQ__RoutingKey=money.transactions
+      - Notifications__BaseUrl=http://notification-receiver:8080
     restart: on-failure
     networks:
       - bank-net
@@ -259,6 +265,8 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
+      notification-receiver:
+        condition: service_started
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-mynewlittlebank};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-S3gr3d0123}
       - RabbitMQ__HostName=rabbitmq
@@ -266,6 +274,35 @@ services:
       - RabbitMQ__Password=guest
       - RabbitMQ__Queue=queue.pix.transactions
       - RabbitMQ__RoutingKey=pix.transactions
+      - Notifications__BaseUrl=http://notification-receiver:8080
+    restart: on-failure
+    networks:
+      - bank-net
+
+  notification-receiver:
+    container_name: notification-receiver
+    build:
+      context: ../workers/notification-receiver-go
+      dockerfile: Dockerfile
+    depends_on:
+      otel-collector:
+        condition: service_started
+    environment:
+      - PORT=8080
+      - NOTIFICATIONS_DIR=/data/notifications
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - OTEL_SERVICE_NAME=notification-receiver
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
+    ports:
+      - "8081:8080"
+    volumes:
+      - notification_data:/data/notifications
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     restart: on-failure
     networks:
       - bank-net
@@ -280,3 +317,4 @@ volumes:
   opensearch_data:
   prometheus_data:
   pgadmin_data:
+  notification_data:
