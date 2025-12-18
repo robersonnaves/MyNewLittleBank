@@ -36,15 +36,8 @@ public sealed class TracingIncomingStep : IIncomingStep
         // Criar Activity para o processamento da mensagem
         // Usamos o nome da fila ou tipo de mensagem para identificar a operação
         var label = headers.TryGetValue(Headers.Type, out var l) ? l : "Unknown";
-        var activityName = $"Process {label}";
+        var activityName = $"Process {label}";        
         
-        // TODO: Injetar ActivitySource via DI ou usar um estático global do domínio
-        // Por simplificação e robustez, usamos um ActivitySource local ou o padrão do .NET se não houver um específico
-        // O ideal é que o 'Service Name' da aplicação seja usado aqui.
-        // Como este step é genérico, vamos tentar usar o Activity.Current?.Source ou criar um novo se não houver.
-        
-        // Assumimos que o ActivitySource foi inicializado na startup da aplicação com o nome do serviço.
-        // Vamos usar um source genérico de infra se não conseguirmos resolver.
         using var activity = new Activity(activityName);
         
         // Configurar Parent
