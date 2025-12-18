@@ -176,6 +176,8 @@ services:
       - RabbitMQ__Password=guest
       - MockTransactions__ApiBaseUrl=http://api:8080
       - MockTransactions__Seed__Enabled=true
+      - MockTransactions__TransactionType=all
+      - MockTransactions__MessagesPerSecond=2
     restart: on-failure
     networks:
       - bank-net
