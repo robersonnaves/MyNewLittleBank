@@ -64,6 +64,9 @@ public static class ObservabilityExtensions
                 var serviceName = builder.Configuration["OpenTelemetry:ServiceName"] 
                                  ?? builder.Environment.ApplicationName;
                 tracing.AddSource(serviceName);
+                
+                // Adicionar Source do Rebus para tracing de mensagens
+                tracing.AddSource("Rebus.Messaging");
 
                 if (builder.Configuration.GetValue("OpenTelemetry:Tracing:Enabled", false))
                 {

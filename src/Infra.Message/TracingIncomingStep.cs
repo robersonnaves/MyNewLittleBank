@@ -10,6 +10,8 @@ namespace Infra.Message;
 /// </summary>
 public sealed class TracingIncomingStep : IIncomingStep
 {
+    private static readonly ActivitySource ActivitySource = new("Rebus.Messaging", "1.0.0");
+
     public async Task Process(IncomingStepContext context, Func<Task> next)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -23,35 +25,41 @@ public sealed class TracingIncomingStep : IIncomingStep
         
         if (headers.TryGetValue("traceparent", out var traceParent))
         {
-            ActivityContext.TryParse(traceParent, null, out parentContext);
-        }
-        
-        // Extrair tracestate se existir
-        string? traceState = null;
-        if (headers.TryGetValue("tracestate", out var ts))
-        {
-            traceState = ts;
+            if (headers.TryGetValue("tracestate", out var traceState))
+            {
+                ActivityContext.TryParse(traceParent, traceState, out parentContext);
+            }
+            else
+            {
+                ActivityContext.TryParse(traceParent, null, out parentContext);
+            }
         }
 
-        // Criar Activity para o processamento da mensagem
+        // Criar Activity para o processamento da mensagem usando ActivitySource
         // Usamos o nome da fila ou tipo de mensagem para identificar a operação
         var label = headers.TryGetValue(Headers.Type, out var l) ? l : "Unknown";
-        var activityName = $"Process {label}";        
+        var activityName = $"Process {label}";
         
-        using var activity = new Activity(activityName);
-        
-        // Configurar Parent
-        if (parentContext != default)
-        {
-            activity.SetParentId(parentContext.TraceId, parentContext.SpanId, parentContext.TraceFlags);
-            activity.TraceStateString = traceState;
-        }
+        var activityLinks = parentContext != default 
+            ? new[] { new ActivityLink(parentContext) } 
+            : Array.Empty<ActivityLink>();
 
-        activity.Start();
+        using var activity = ActivitySource.StartActivity(
+            activityName,
+            ActivityKind.Consumer,
+            parentContext,
+            links: activityLinks);
+
+        // Se nenhuma activity foi criada (sampler decidiu não gravar), continuar sem tracing
+        if (activity is null)
+        {
+            await next().ConfigureAwait(false);
+            return;
+        }
 
         try
         {
-            // Adicionar Tags padrão Ootel
+            // Adicionar Tags padrão OTel
             activity.SetTag("messaging.system", "rabbitmq");
             activity.SetTag("messaging.operation", "process");
             
@@ -68,7 +76,7 @@ public sealed class TracingIncomingStep : IIncomingStep
         catch (TaskCanceledException) when (context.Load<Rebus.Messages.Message>().Headers.TryGetValue("cancellation-token", out _))
         {
             activity.SetStatus(ActivityStatusCode.Error, "Operation cancelled");
-            activity.AddTag("exception.type", typeof(TaskCanceledException).FullName);
+            activity.SetTag("exception.type", typeof(TaskCanceledException).FullName);
             throw;
         }
 #pragma warning disable CA1031 // This is a tracing middleware that must capture any exception type for observability
@@ -76,15 +84,11 @@ public sealed class TracingIncomingStep : IIncomingStep
         {
             // Catching all exceptions intentionally - this is a tracing middleware that must capture any exception type for observability
             activity.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity.AddTag("exception.type", ex.GetType().FullName);
-            activity.AddTag("exception.message", ex.Message);
-            activity.AddTag("exception.stacktrace", ex.StackTrace);
+            activity.SetTag("exception.type", ex.GetType().FullName);
+            activity.SetTag("exception.message", ex.Message);
+            activity.SetTag("exception.stacktrace", ex.StackTrace);
             throw;
         }
 #pragma warning restore CA1031
-        finally
-        {
-            activity.Stop();
-        }
     }
 }
