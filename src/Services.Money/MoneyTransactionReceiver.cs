@@ -82,6 +82,15 @@ public sealed class MoneyTransactionReceiver : IMessageConsumer
         if (result.IsFailure)
         {
             ProcessingFailed(_logger, result.Error!, null);
+            
+            // Business errors should not cause retry - message already processed
+            if (result.Error == "bank_account_not_found" || 
+                result.Error == "insufficient_funds")
+            {
+                return; // Acknowledge message without retry
+            }
+            
+            // Technical errors should retry
             throw new InvalidOperationException(result.Error);
         }
     }
