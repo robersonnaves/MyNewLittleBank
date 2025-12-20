@@ -205,8 +205,15 @@ public sealed class CardTransactionReceiverTests
         VerifyLogMessage(LogLevel.Debug, 3); // IgnoredMessageType EventId
     }
 
-    [Fact]
-    public async Task HandleAsync_WithHandlerFailure_Should_LogProcessingError_And_ThrowException()
+    [Theory]
+    [InlineData("insufficient_funds")]
+    [InlineData("bank_account_not_found")]
+    [InlineData("client_not_found")]
+    [InlineData("invalid_cpf")]
+    [InlineData("invalid_account_number")]
+    [InlineData("invalid_money")]
+    [InlineData("invalid_transaction")]
+    public async Task HandleAsync_WithBusinessError_Should_LogProcessingError_And_AcknowledgeMessage(string errorMessage)
     {
         // Arrange
         var receiver = new CardTransactionReceiver(_mockOptions.Object, _mockLogger.Object, _mockHandler.Object);
@@ -222,7 +229,39 @@ public sealed class CardTransactionReceiverTests
         var payload = JsonSerializer.Serialize(cardDto, JsonOptions);
         var envelope = new MessageEnvelope("mock.card.transaction", payload, "card.transactions");
 
-        const string errorMessage = "insufficient_funds";
+        _mockHandler
+            .Setup(h => h.HandleAsync(It.IsAny<CardTransactionDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure(errorMessage));
+
+        // Act - Should complete without throwing
+        await receiver.HandleAsync(envelope, CancellationToken.None);
+
+        // Assert
+        _mockHandler.Verify(
+            h => h.HandleAsync(It.IsAny<CardTransactionDto>(), It.IsAny<CancellationToken>()), 
+            Times.Once);
+        
+        VerifyLogMessage(LogLevel.Warning, 1); // BusinessErrorOccurred EventId
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithTechnicalError_Should_LogProcessingError_And_ThrowException()
+    {
+        // Arrange
+        var receiver = new CardTransactionReceiver(_mockOptions.Object, _mockLogger.Object, _mockHandler.Object);
+        var cardDto = new CardTransactionDto(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "123456",
+            100.50m,
+            "4111111111111111",
+            TransactionStatus.Pending,
+            DateTime.UtcNow);
+
+        var payload = JsonSerializer.Serialize(cardDto, JsonOptions);
+        var envelope = new MessageEnvelope("mock.card.transaction", payload, "card.transactions");
+
+        const string errorMessage = "database_connection_error";
         _mockHandler
             .Setup(h => h.HandleAsync(It.IsAny<CardTransactionDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Failure(errorMessage));
@@ -233,7 +272,7 @@ public sealed class CardTransactionReceiverTests
         
         exception.Message.Should().Be(errorMessage);
         
-        VerifyLogMessage(LogLevel.Warning, 1); // ProcessingFailed EventId
+        VerifyLogMessage(LogLevel.Error, 5); // TechnicalErrorOccurred EventId
         
         _mockHandler.Verify(
             h => h.HandleAsync(It.IsAny<CardTransactionDto>(), It.IsAny<CancellationToken>()), 

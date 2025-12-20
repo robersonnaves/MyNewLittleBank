@@ -1,6 +1,8 @@
 using Domain.Interfaces;
+using Infra.Message.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Rebus.Config;
 using Rebus.Pipeline;
@@ -40,6 +42,17 @@ public static class MessagingServiceCollectionExtensions
                         }
                     }
                 }));
+            
+            // Configurar serialização customizada para usar FullName sem assembly info
+            configure.Serialization(s =>
+            {
+                s.Register(context =>
+                {
+                    var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
+                    var logger = loggerFactory.CreateLogger<SimpleTypeNameSerializer>();
+                    return new SimpleTypeNameSerializer(logger);
+                });
+            });
             
             configure.Options(o =>
             {

@@ -14,16 +14,34 @@ public sealed class PixTransactionReceiver : IMessageConsumer
     private readonly IProcessTransactionsHandler _handler;
     private readonly ILogger<PixTransactionReceiver> _logger;
     private readonly string _expectedRoutingKey;
+    
+    // Business errors that should not trigger message retry
+    private static readonly HashSet<string> BusinessErrors = new()
+    {
+        "bank_account_not_found",
+        "insufficient_funds",
+        "client_not_found",
+        "invalid_cpf",
+        "invalid_account_number",
+        "invalid_money",
+        "invalid_transaction"
+    };
+    
     private static readonly Action<ILogger, string, string, Exception?> IgnoredRoutingKey =
         LoggerMessage.Define<string, string>(
             LogLevel.Warning,
             new EventId(2, nameof(IgnoredRoutingKey)),
             "Ignoring message for Pix. RoutingKey={RoutingKey}, Expected={ExpectedRoutingKey}");
-    private static readonly Action<ILogger, string, Exception?> ProcessingFailed =
+    private static readonly Action<ILogger, string, Exception?> BusinessErrorOccurred =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
-            new EventId(1, nameof(ProcessingFailed)),
-            "Pix transaction processing failed with error {Error}");
+            new EventId(1, nameof(BusinessErrorOccurred)),
+            "Pix transaction rejected due to business rule: {Error}");
+    private static readonly Action<ILogger, string, Exception?> TechnicalErrorOccurred =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(5, nameof(TechnicalErrorOccurred)),
+            "Pix transaction processing failed due to technical error: {Error}");
     private static readonly Action<ILogger, string, Exception?> IgnoredMessageType =
         LoggerMessage.Define<string>(
             LogLevel.Debug,
@@ -81,16 +99,15 @@ public sealed class PixTransactionReceiver : IMessageConsumer
         var result = await _handler.HandleAsync(message, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
         {
-            ProcessingFailed(_logger, result.Error!, null);
-            
             // Business errors should not cause retry - message already processed
-            if (result.Error == "bank_account_not_found" || 
-                result.Error == "insufficient_funds")
+            if (BusinessErrors.Contains(result.Error!))
             {
+                BusinessErrorOccurred(_logger, result.Error!, null);
                 return; // Acknowledge message without retry
             }
             
             // Technical errors should retry
+            TechnicalErrorOccurred(_logger, result.Error!, null);
             throw new InvalidOperationException(result.Error);
         }
     }

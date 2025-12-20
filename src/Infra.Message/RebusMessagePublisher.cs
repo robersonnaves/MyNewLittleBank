@@ -22,7 +22,7 @@ public sealed class RebusMessagePublisher : IMessagePublisher
 
         var envelope = new MessageEnvelope(messageType, payload, routingKey);
         var headers = BuildRebusHeaders(envelope);
-        
+
         return _messagingBus.PublishAsync(envelope, headers, cancellationToken);
     }
 
@@ -31,7 +31,7 @@ public sealed class RebusMessagePublisher : IMessagePublisher
         var headers = new Dictionary<string, string>
         {
             [Headers.ContentType] = "application/json",
-            [Headers.Type] = typeof(MessageEnvelope).AssemblyQualifiedName ?? typeof(MessageEnvelope).FullName ?? typeof(MessageEnvelope).Name,
+            [Headers.Type] = typeof(MessageEnvelope).FullName ?? typeof(MessageEnvelope).Name,
             ["message-type"] = envelope.MessageType,
             ["routing-key"] = envelope.RoutingKey
         };

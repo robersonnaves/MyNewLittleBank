@@ -258,6 +258,22 @@ Padrões obrigatórios baseados em Clean Architecture com DDD para arquitetura d
 - ✅ Result para erros esperados (validações, regras de negócio)
 - ✅ Exceções para erros inesperados (bugs, falhas de infraestrutura)
 
+### Error Handling Strategy
+
+**Transaction Receivers distinguem entre business errors e technical errors:**
+
+- **Business errors**: Retornar sem lançar exceção (mensagem reconhecida, sem retry)
+  - Exemplos: `insufficient_funds`, `bank_account_not_found`, `client_not_found`, `invalid_cpf`, `invalid_account_number`, `invalid_money`, `invalid_transaction`
+  - Log: `Warning` level (EventId=1)
+  - Comportamento: Acknowledge message without retry
+
+- **Technical errors**: Lançar exceção para disparar retry
+  - Exemplos: `database_connection_error`, `network_timeout`, `service_unavailable`
+  - Log: `Error` level (EventId=5)
+  - Comportamento: Message retry (até max retries) → Dead Letter Queue (DLQ)
+
+**Documentação completa:** Ver `doc/error-handling.md` para strategy detalhada, lista completa de erros, fluxos de mensagem, observabilidade e best practices.
+
 ## Validações
 
 ### Múltiplas Camadas
