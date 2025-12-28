@@ -1,6 +1,10 @@
 # Build stage
 FROM golang:1.24-alpine AS builder
 
+# Build arguments for multi-platform support
+ARG TARGETOS=linux
+ARG TARGETARCH=arm64
+
 WORKDIR /build
 
 # Copy go mod files
@@ -10,8 +14,10 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o notification-receiver ./cmd/server
+# Build binary with platform-specific variables
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -a -installsuffix cgo -ldflags="-s -w" \
+    -o notification-receiver ./cmd/server
 
 # Runtime stage
 FROM alpine:latest

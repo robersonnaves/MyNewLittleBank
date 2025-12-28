@@ -21,21 +21,53 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $PSCommandPath
-$ComposeFile = Join-Path $ScriptDir '..\docker-compose.yml'
 $Engine = if ($env:CONTAINER_ENGINE) { $env:CONTAINER_ENGINE } else { 'podman' }
 
 $env:COMPOSE_PROJECT_NAME = 'mynewlittlebank'
 
+# Detect platform
+$OSPlatform = if ($IsLinux) { 
+    'linux' 
+} elseif ($IsMacOS) { 
+    'macos' 
+} elseif ($IsWindows) { 
+    'windows' 
+} else { 
+    'unknown' 
+}
+
+$OSArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLower()
+
+Write-Host "Detected platform: $OSPlatform/$OSArch" -ForegroundColor Cyan
 Write-Host "Using container engine: $Engine" -ForegroundColor Cyan
 Write-Host "Profile: $Profile" -ForegroundColor Cyan
+
+# Compose files setup
+$ComposeBase = Join-Path $ScriptDir '..\docker-compose.yml'
+$ComposeLinux = Join-Path $ScriptDir '..\docker-compose.linux.yml'
+$ComposeOverride = Join-Path $ScriptDir '..\docker-compose.override.yml'
+
+$ComposeFiles = @('-f', $ComposeBase)
+
+# Add Linux override if on Linux and file exists
+if ($OSPlatform -eq 'linux' -and (Test-Path $ComposeLinux)) {
+    Write-Host "Using Linux-specific overrides (SELinux)" -ForegroundColor Cyan
+    $ComposeFiles += @('-f', $ComposeLinux)
+}
+
+# Add local override if exists
+if (Test-Path $ComposeOverride) {
+    Write-Host "Using local overrides" -ForegroundColor Cyan
+    $ComposeFiles += @('-f', $ComposeOverride)
+}
 
 if ($Profile -eq 'ci') {
     Write-Host "Cleaning up existing CI containers..." -ForegroundColor Yellow
     try {
         if ($Engine -eq 'docker') {
-            & $Engine compose -f $ComposeFile --profile $Profile down -v --remove-orphans
+            & $Engine compose $ComposeFiles --profile $Profile down -v --remove-orphans
         } else {
-            & $Engine compose -f $ComposeFile down -v --remove-orphans
+            & $Engine compose $ComposeFiles down -v --remove-orphans
         }
     } catch {
         Write-Warning "Cleanup failed or no containers to remove: $_"
@@ -44,17 +76,17 @@ if ($Profile -eq 'ci') {
 
 Write-Host "Starting compose services..." -ForegroundColor Green
 if ($Engine -eq 'docker') {
-    & $Engine compose -f $ComposeFile --profile $Profile up -d
+    & $Engine compose $ComposeFiles --profile $Profile up -d
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to start compose services"
     }
-    & $Engine compose -f $ComposeFile --profile $Profile ps
+    & $Engine compose $ComposeFiles --profile $Profile ps
 } else {
-    & $Engine compose -f $ComposeFile up -d
+    & $Engine compose $ComposeFiles up -d
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to start compose services"
     }
-    & $Engine compose -f $ComposeFile ps
+    & $Engine compose $ComposeFiles ps
 }
 
 Write-Host "Bootstrap complete!" -ForegroundColor Green

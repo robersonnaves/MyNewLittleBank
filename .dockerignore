@@ -1,0 +1,70 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/.cursor/
+**/.codex/
+**/.agents/
+
+# Test results
+**/TestResults/
+**/artifacts/
+**/*.trx
+
+# Dependencies
+**/node_modules/
+**/packages/
+
+# Logs and temporary files
+**/*.log
+**/*.tmp
+**/*.temp
+**/logs/
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Git
+**/.git/
+**/.gitignore
+**/.gitattributes
+
+# Docker
+**/.dockerignore
+**/Dockerfile
+**/docker-compose*.yml
+
+# Documentation (build context doesn't need these)
+**/README.md
+**/doc/**/*.md
+**/.github/
+
+# Database backups
+**/*.sql
+**/backup_*.sql
+
+# IDE specific
+**/*.swp
+**/*.swo
+**/*~
+**/.DS_Store
+
+# Coverage reports
+**/coverage/
+**/CodeCoverage/
+**/*.coverage
+**/*.coveragexml
+
+# NuGet
+**/*.nupkg
+**/*.snupkg
+
+# Keep necessary files (exceptions)
+!**/global.json
+!**/Directory.Build.props
+!**/Directory.Packages.props

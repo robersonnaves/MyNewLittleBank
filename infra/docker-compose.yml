@@ -42,13 +42,13 @@ services:
 
   opensearch:
     container_name: opensearch
-    image: docker.io/opensearchproject/opensearch:2.15.0
+    image: docker.io/opensearchproject/opensearch:3.4.0
     environment:
       discovery.type: single-node
       plugins.security.disabled: "true"
       bootstrap.memory_lock: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
-      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "S3gr3d0123"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
     ulimits:
       memlock:
         soft: -1
@@ -74,7 +74,7 @@ services:
     command: ["--config=/etc/otel-collector-config.yaml"]
     user: "0:0"
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro,Z
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
@@ -110,7 +110,7 @@ services:
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:z
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     healthcheck:
       test: [ "CMD-SHELL", "wget --spider -q http://localhost:9090/-/ready" ]
@@ -125,8 +125,8 @@ services:
     image: docker.io/dpage/pgadmin4
     restart: on-failure
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@robdevs.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@robdevs.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
     ports:
       - "5050:80"
     depends_on:
@@ -156,7 +156,7 @@ services:
       - Swagger__Enabled=true
     restart: on-failure
     ports:
-      - "5000:8080"
+      - "5001:8080"
     networks:
       - bank-net
 
