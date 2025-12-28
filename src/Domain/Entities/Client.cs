@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Domain.Entities;
 
-public sealed class Client
+public sealed class Client : IAuditable
 {
     private readonly List<BankAccount> _bankAccounts = new();
 

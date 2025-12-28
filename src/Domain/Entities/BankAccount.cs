@@ -2,7 +2,7 @@
 
 namespace Domain.Entities;
 
-public sealed class BankAccount
+public sealed class BankAccount : IAuditable
 {
     private readonly List<TransactionId> _transactions = new();
 

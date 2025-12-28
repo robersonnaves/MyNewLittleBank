@@ -1,5 +1,6 @@
 using System;
 using Domain.Interfaces;
+using Infra.Database.Interceptors;
 using Infra.Database.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,10 +24,14 @@ public static class DatabaseServiceCollectionExtensions
             throw new InvalidOperationException($"Connection string '{connectionStringName}' was not found.");
         }
 
+        services.AddSingleton<AuditInterceptor>();
+
         services.AddDbContext<MyNewLittleBankContext>((serviceProvider, options) =>
         {
+            var auditInterceptor = serviceProvider.GetRequiredService<AuditInterceptor>();
             options.UseNpgsql(connectionString);
             options.UseSnakeCaseNamingConvention();
+            options.AddInterceptors(auditInterceptor);
         });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();

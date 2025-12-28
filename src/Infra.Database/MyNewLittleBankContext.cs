@@ -19,6 +19,7 @@ public sealed class MyNewLittleBankContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Entities.OutboxMessage> OutboxMessages => Set<Entities.OutboxMessage>();
     public DbSet<Entities.InboxMessage> InboxMessages => Set<Entities.InboxMessage>();
+    public DbSet<Entities.AuditLog> AuditLogs => Set<Entities.AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

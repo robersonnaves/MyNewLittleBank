@@ -2,7 +2,7 @@
 
 namespace Domain.Entities;
 
-public abstract class Transaction
+public abstract class Transaction : IAuditable
 {
     protected Transaction(TransactionId id, ClientId clientId, AccountNumber bankAccountId, Money amount, TransactionStatus status, DateTime occurredOn)
     {

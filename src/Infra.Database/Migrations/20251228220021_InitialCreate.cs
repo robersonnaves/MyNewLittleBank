@@ -12,6 +12,25 @@ namespace Infra.Database.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "audit_logs",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    entity_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    entity_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    action = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    old_values = table.Column<string>(type: "jsonb", nullable: true),
+                    new_values = table.Column<string>(type: "jsonb", nullable: true),
+                    occurred_on = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    trace_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    span_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_audit_logs", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "clients",
                 columns: table => new
                 {
@@ -114,6 +133,21 @@ namespace Infra.Database.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "ix_audit_logs_entity_id",
+                table: "audit_logs",
+                column: "entity_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_audit_logs_occurred_on",
+                table: "audit_logs",
+                column: "occurred_on");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_audit_logs_trace_id",
+                table: "audit_logs",
+                column: "trace_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_bank_accounts_account_number",
                 table: "bank_accounts",
                 column: "account_number",
@@ -159,6 +193,9 @@ namespace Infra.Database.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "audit_logs");
+
             migrationBuilder.DropTable(
                 name: "inbox_messages");
 
