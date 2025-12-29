@@ -132,6 +132,9 @@ public sealed class CoreApiUseCasesTests
         public Task<IReadOnlyList<Client>> ListAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
             Task.FromResult((IReadOnlyList<Client>)_items.AsQueryable().Where(predicate).ToList());
 
+        public Task<Client?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items.AsQueryable().Where(predicate).FirstOrDefault());
+
         public void Remove(Client entity) => _items.Remove(entity);
 
         public void Update(Client entity)
@@ -165,6 +168,9 @@ public sealed class CoreApiUseCasesTests
 
         public Task<IReadOnlyList<BankAccount>> ListAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default) =>
             Task.FromResult((IReadOnlyList<BankAccount>)_items.AsQueryable().Where(predicate).ToList());
+
+        public Task<BankAccount?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items.AsQueryable().Where(predicate).FirstOrDefault());
 
         public Task<bool> ExistsAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default) =>
             Task.FromResult(_items.AsQueryable().Any(predicate));

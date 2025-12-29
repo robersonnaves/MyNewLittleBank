@@ -136,8 +136,8 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
 
         transaction.ChangeStatus(TransactionStatus.Completed);
 
-        // Ensure account balance change is persisted
-        _bankAccountWriter.Update(account);
+        // Entity is already tracked, no need to call Update()
+        // EF Core will automatically detect the Balance change
 
         await _transactionWriter.AddAsync(transaction, cancellationToken).ConfigureAwait(false);
 
@@ -171,11 +171,9 @@ public sealed class ProcessTransactionsHandler : IProcessTransactionsHandler
 
     private async Task<BankAccount?> FindAccountAsync(AccountNumber accountNumber, CancellationToken cancellationToken)
     {
-        var accounts = await _bankAccountReader
-            .ListAsync(account => account.AccountNumber == accountNumber, cancellationToken)
+        return await _bankAccountReader
+            .FirstOrDefaultAsync(account => account.AccountNumber == accountNumber, cancellationToken)
             .ConfigureAwait(false);
-
-        return accounts.Count > 0 ? accounts[0] : null;
     }
 
     private static string BuildOutboxPayload(Transaction transaction, Money balanceAfterOperation)

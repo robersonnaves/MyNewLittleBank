@@ -51,7 +51,7 @@ public sealed class ProcessTransactionsHandlerTests
         outbox.Messages.Should().HaveCount(1);
         outbox.Messages.Single().MessageType.Should().Be("transaction.processed");
         ParseOutbox(outbox.Messages.Single().Payload).GetProperty("balanceAfterOperation").GetDecimal().Should().Be(100m);
-        bankAccounts.UpdateCalls.Should().Be(1);
+        // Note: .Update() is no longer called explicitly - EF Core tracks changes automatically
         uow.SaveChangesCalls.Should().Be(1);
         notificationSender.SentNotifications.Should().BeEmpty();
     }
@@ -234,6 +234,9 @@ public sealed class ProcessTransactionsHandlerTests
         public Task<IReadOnlyList<BankAccount>> ListAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default) =>
             Task.FromResult((IReadOnlyList<BankAccount>)_items.AsQueryable().Where(predicate).ToList());
 
+        public Task<BankAccount?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items.AsQueryable().Where(predicate).FirstOrDefault());
+
         public void Remove(BankAccount entity) => _items.Remove(entity);
 
         public void Update(BankAccount entity)
@@ -298,6 +301,9 @@ public sealed class ProcessTransactionsHandlerTests
 
         public Task<IReadOnlyList<Client>> ListAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
             Task.FromResult((IReadOnlyList<Client>)_items.AsQueryable().Where(predicate).ToList());
+
+        public Task<Client?> FirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_items.AsQueryable().Where(predicate).FirstOrDefault());
 
         public Task<bool> ExistsAsync(System.Linq.Expressions.Expression<Func<Client, bool>> predicate, CancellationToken cancellationToken = default) =>
             Task.FromResult(_items.AsQueryable().Any(predicate));

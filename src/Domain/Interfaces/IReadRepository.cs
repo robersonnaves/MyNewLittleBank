@@ -9,4 +9,5 @@ public interface IReadRepository<TEntity>
     Task<IReadOnlyList<TEntity>> ListAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TEntity>> ListAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
+    Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default);
 }

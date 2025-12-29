@@ -54,6 +54,9 @@ public sealed class EfRepository<TEntity> :
     public Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) =>
         _set.AsNoTracking().AnyAsync(predicate, cancellationToken);
 
+    public Task<TEntity?> FirstOrDefaultAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default) =>
+        _set.Where(predicate).FirstOrDefaultAsync(cancellationToken);
+
     public Task<TEntity?> FirstOrDefaultAsync(ISpecification<TEntity> specification, CancellationToken cancellationToken = default) =>
         ApplySpecification(specification).FirstOrDefaultAsync(cancellationToken);
 
