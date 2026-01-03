@@ -286,6 +286,8 @@ services:
     build:
       context: ../workers/notification-receiver-go
       dockerfile: Dockerfile
+    # Specify the image format to avoid HEALTHCHECK warnings with Podman
+    image: notification-receiver:latest
     depends_on:
       otel-collector:
         condition: service_started

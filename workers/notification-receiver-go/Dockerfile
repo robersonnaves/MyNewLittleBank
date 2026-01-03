@@ -2,8 +2,8 @@
 FROM golang:1.24-alpine AS builder
 
 # Build arguments for multi-platform support
-ARG TARGETOS=linux
-ARG TARGETARCH=arm64
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /build
 

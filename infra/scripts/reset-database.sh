@@ -97,15 +97,25 @@ fi
 # Check if dotnet ef tool is installed
 echo ""
 echo "Checking dotnet ef tool..."
-if ! dotnet ef --version &> /dev/null; then
-  echo "Error: dotnet ef tool not installed. Installing..."
-  dotnet tool install --global dotnet-ef
+EF_VERSION=$(dotnet ef --version 2>&1 || true)
+if [[ $EF_VERSION == *"Entity Framework Core .NET Command-line Tools"* ]]; then
+  # Check if version starts with 8
+  CURRENT_EF_VERSION=$(echo "$EF_VERSION" | sed -n 's/^[^0-9]*\([0-9]*\)\..*/\1/p')
+  if [ "${CURRENT_EF_VERSION}" != "8" ]; then
+    echo "Warning: dotnet ef tool version is not 8.x (found version ${CURRENT_EF_VERSION}). Reinstalling version 8.0.*..."
+    dotnet tool uninstall --global dotnet-ef || true
+    dotnet tool install --global dotnet-ef --version 8.0.*
+  else
+    echo "✓ dotnet ef found (version 8.x)"
+  fi
+else
+  echo "Error: dotnet ef tool not installed. Installing version 8.0.*..."
+  dotnet tool install --global dotnet-ef --version 8.0.*
   if [ $? -ne 0 ]; then
     echo "Error: Failed to install dotnet ef tool"
     exit 1
   fi
 fi
-echo "✓ dotnet ef found"
 
 # Backup database if requested
 if [ "${BACKUP}" = "true" ]; then
