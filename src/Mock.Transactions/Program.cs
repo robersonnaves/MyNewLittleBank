@@ -9,10 +9,12 @@ using Shared.Health;
 using Shared.Observability;
 using Microsoft.Extensions.Options;
 
+using MyNewLittleBank.ServiceDefaults;
+
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
 builder.AddSerilogLogging();
-builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 
 builder.Configuration.AddCommandLine(args);
@@ -44,8 +46,8 @@ builder.Services.AddHostedService<MockTransactionsWorker>();
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
-app.MapPrometheusScrapingEndpoint();
 
 await app.RunAsync().ConfigureAwait(false);

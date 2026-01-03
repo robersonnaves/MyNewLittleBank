@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 using Shared.Health;
 using Shared.Observability;
+using MyNewLittleBank.ServiceDefaults;
 using System.IO;
 using System.Reflection;
 using UseCases.Accounts;
@@ -16,8 +17,8 @@ using UseCases.Clients;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
 builder.AddSerilogLogging();
-builder.AddObservability();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
@@ -52,9 +53,9 @@ builder.Services.AddScoped<IGetAccountBalanceHandler, GetAccountBalanceHandler>(
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
-app.MapPrometheusScrapingEndpoint();
 
 var swaggerEnabled = app.Environment.IsDevelopment()
     || app.Environment.IsStaging()

@@ -33,8 +33,6 @@ public static class HealthCheckExtensions
             builder.AddCheck("rabbitmq", new RabbitMqHealthCheck(rabbitSection), tags: ReadyTags);
         }
 
-        builder.AddCheck("self", () => HealthCheckResult.Healthy(), tags: LiveTags);
-
         return builder;
     }
 

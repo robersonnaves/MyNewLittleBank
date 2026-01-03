@@ -60,6 +60,7 @@ nunit-*.xml
 .cursor
 .codex
 .agents
+.idea
 
 # Docker Compose overrides (local development)
 docker-compose.override.yml

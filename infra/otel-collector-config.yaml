@@ -25,6 +25,12 @@ processors:
         action: insert
 
 exporters:
+  # Exportar para o Aspire Dashboard (via OTLP)
+  otlp/aspire:
+    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    tls:
+      insecure: true
+
   # Exportar traces para Jaeger
   otlp/jaeger:
     endpoint: jaeger:4317
@@ -57,17 +63,17 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, attributes]
-      exporters: [otlp/jaeger, debug]
+      exporters: [otlp/jaeger, otlp/aspire, debug]
     
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch, attributes]
-      exporters: [prometheus, debug]
+      exporters: [prometheus, otlp/aspire, debug]
     
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch, attributes]
-      exporters: [debug]
+      exporters: [otlp/aspire, debug]
   
   telemetry:
     logs:
