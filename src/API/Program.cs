@@ -18,7 +18,8 @@ using UseCases.Clients;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddSerilogLogging();
+// Comentar Serilog para usar apenas OpenTelemetry Logging
+// builder.AddSerilogLogging();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();

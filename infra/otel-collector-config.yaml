@@ -37,6 +37,18 @@ exporters:
       max_interval: 30s
       max_elapsed_time: 300s
   
+  # Exportar logs para o Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    tls:
+      insecure: true
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+  
   # Debug exporter para logs (opcional, comentar em produção)
   debug:
     verbosity: normal
@@ -68,7 +80,7 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch, attributes]
-      exporters: [otlp/aspire, debug]
+      exporters: [otlp/aspire, loki, debug]
   
   telemetry:
     logs:

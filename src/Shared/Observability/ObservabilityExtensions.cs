@@ -41,15 +41,18 @@ public static class ObservabilityExtensions
             logging.IncludeScopes = true;
             logging.SetResourceBuilder(resourceBuilder);
 
-            if (builder.Configuration.GetValue("OpenTelemetry:Logging:Enabled", false))
+            // Sempre adicionar OTLP exporter para logs quando o endpoint está configurado
+            var endpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];
+            var loggingEnabled = builder.Configuration.GetValue("OpenTelemetry:Logging:Enabled", false);
+            
+            if (loggingEnabled && !string.IsNullOrWhiteSpace(endpoint))
             {
-                var endpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"];
-                if (!string.IsNullOrWhiteSpace(endpoint))
-                {
-                    logging.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
-                }
+                logging.AddOtlpExporter(options => options.Endpoint = new Uri(endpoint));
             }
         });
+        
+        // Configurar minimum level para capturar logs
+        builder.Logging.SetMinimumLevel(LogLevel.Information);
 
         // 3. Adicionar Tracing e Metrics
         builder.Services.AddOpenTelemetry()
@@ -167,7 +170,8 @@ public static class ObservabilityExtensions
 
         var logger = loggerConfig.CreateLogger();
 
-        builder.Logging.ClearProviders();
+        // NÃO limpar providers para manter OpenTelemetry Logging
+        // builder.Logging.ClearProviders();
         builder.Logging.AddSerilog(logger, dispose: true);
 
         return builder;
