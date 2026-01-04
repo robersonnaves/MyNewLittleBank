@@ -12,8 +12,7 @@
     <ProjectReference Include="..\\Domain\\Domain.csproj" />
     <ProjectReference Include="..\\Infra.Database\\Infra.Database.csproj" />
     <ProjectReference Include="..\\Shared\\Shared.csproj" />
-    <ProjectReference Include="..\\UseCases\\UseCases.csproj" />
-    <ProjectReference Include="..\MyNewLittleBank.ServiceDefaults\MyNewLittleBank.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\\UseCases\\UseCases.csproj" />    
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">

@@ -9,7 +9,6 @@ using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 using Shared.Health;
 using Shared.Observability;
-using MyNewLittleBank.ServiceDefaults;
 using System.IO;
 using System.Reflection;
 using UseCases.Accounts;
@@ -17,7 +16,6 @@ using UseCases.Clients;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
 // Comentar Serilog para usar apenas OpenTelemetry Logging
 // builder.AddSerilogLogging();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
@@ -54,7 +52,6 @@ builder.Services.AddScoped<IGetAccountBalanceHandler, GetAccountBalanceHandler>(
 
 var app = builder.Build();
 
-app.MapDefaultEndpoints();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
 

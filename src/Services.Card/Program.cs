@@ -12,11 +12,8 @@ using Shared.Observability;
 using UseCases.Notifications;
 using UseCases.Transactions;
 
-using MyNewLittleBank.ServiceDefaults;
-
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
 builder.AddSerilogLogging();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
@@ -28,7 +25,6 @@ builder.Services.AddScoped<IMessageConsumer, CardTransactionReceiver>();
 
 var app = builder.Build();
 
-app.MapDefaultEndpoints();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
 
