@@ -4,11 +4,11 @@
 
 O projeto MyNewLittleBank utiliza uma stack de observabilidade completa com **OpenTelemetry Collector** como hub central, roteando telemetria para múltiplos backends:
 
-- **Aspire Dashboard** - Visualização em tempo real (desenvolvimento)
-- **Jaeger** - Rastreamento distribuído de traces
+- **Grafana** - Plataforma central de visualização unificada
 - **Prometheus** - Armazenamento e consulta de métricas time-series
 - **Loki** - Centralização de logs estruturados
-- **Grafana** - Visualização unificada de todos os sinais
+- **Tempo** - Rastreamento distribuído de traces (persistente)
+- **Pyroscope** - Profiling de performance (CPU, memória)
 
 ## 🏗️ Architecture
 
@@ -28,24 +28,23 @@ O projeto MyNewLittleBank utiliza uma stack de observabilidade completa com **Op
 └─────┬──────────┬──────────┬────────┘                │
       │          │          │                         │
       ▼          ▼          ▼                         │
-┌─────────┐ ┌─────────┐ ┌─────────┐                  │
-│ Jaeger  │ │Prometh  │ │  Loki   │◄─────────────────┘
-│ (Traces)│ │(Metrics)│ │ (Logs)  │ HTTP Push API
-└────┬────┘ └────┬────┘ └────┬────┘
-     │           │           │
-     └───────────┴───────────┴──────────┐
-                                        │
-                            ┌───────────▼─────────┐
-                            │      Grafana        │
-                            │   (Visualização)    │
-                            └─────────────────────┘
-                                    │
-                                    │ (também)
-                                    ▼
-                            ┌─────────────────────┐
-                            │  Aspire Dashboard   │
-                            │   (Desenvolvimento) │
-                            └─────────────────────┘
+┌────────┐  ┌─────────┐  ┌─────────┐                  │
+│ Tempo  │  │Promethe │  │  Loki   │◄─────────────────┘
+│(Traces)│  │ (Metrics│  │ (Logs)  │ OTLP HTTP
+└───┬────┘  └────┬────┘  └────┬────┘
+    │            │             │
+    └────────────┴─────────────┴──────┐
+                                      │
+                          ┌───────────▼─────────┐
+                          │    Grafana          │
+                          │ (Visualização)      │
+                          └─────────────────────┘
+                                      │
+                                      ▼
+                          ┌─────────────────────┐
+                          │    Pyroscope       │
+                          │   (Profiling)      │
+                          └─────────────────────┘
 ```
 
 ## 📦 Componentes da Stack
@@ -53,15 +52,15 @@ O projeto MyNewLittleBank utiliza uma stack de observabilidade completa com **Op
 | Componente | Função | Porta Principal | URL |
 |------------|--------|-----------------|-----|
 | **OpenTelemetry Collector** | Coletor central de telemetria | 4317 (gRPC), 4318 (HTTP) | - |
-| **Jaeger** | Backend de traces distribuídos | 16686 (UI) | http://localhost:16686 |
+| **Tempo** | Backend de traces distribuídos | 3200 (UI/API), 4317 (OTLP gRPC) | http://localhost:3200 |
 | **Prometheus** | Backend de métricas time-series | 9090 (UI) | http://localhost:9090 |
 | **Loki** | Backend de logs estruturados | 3100 (API) | http://localhost:3100 |
 | **Grafana** | Visualização unificada | 3000 (UI) | http://localhost:3000 |
-| **Aspire Dashboard** | Visualização em tempo real (dev) | 15000 (UI) | http://localhost:15000 |
+| **Pyroscope** | Profiling de performance | 4040 (UI/API) | http://localhost:4040 |
 
 ## 🚀 Iniciando a Stack de Observabilidade
 
-### Opção 1: Stack Completa (Recomendado)
+### Iniciar Stack Completa
 
 ```bash
 cd infra
@@ -73,13 +72,12 @@ podman-compose up -d
 podman-compose -f docker-compose.observability.yml up -d
 ```
 
-### Opção 2: Apenas Aspire (Desenvolvimento Rápido)
-
-```bash
-cd infra
-podman-compose up -d
-# Aspire Dashboard estará disponível em http://localhost:15000
-```
+**Acesso aos serviços**:
+- Grafana: http://localhost:3000 (admin/admin)
+- Prometheus: http://localhost:9090
+- Tempo: http://localhost:3200
+- Loki: http://localhost:3100
+- Pyroscope: http://localhost:4040
 
 ### Parar a Stack de Observabilidade
 
@@ -120,27 +118,28 @@ environment:
 - `memory_limiter` - Limita uso de memória (512MB)
 
 **Exporters**:
-- `otlp/aspire` - Aspire Dashboard (compatibilidade)
-- `otlp/jaeger` - Jaeger para traces
+- `otlp/tempo` - Tempo para traces distribuídos
+- `otlphttp/logs` - Loki para logs via OTLP HTTP
 - `prometheus` - Exposição de métricas em /metrics
-- `loki` - Loki para logs
+- `otlphttp/pyroscope` - Pyroscope para profiling
 
 **Pipelines**:
-- `traces` → Jaeger + Aspire
-- `metrics` → Prometheus + Aspire
-- `logs` → Loki + Aspire
+- `traces` → Tempo
+- `metrics` → Prometheus
+- `logs` → Loki
 
-### Jaeger
+### Tempo
 
-**Configuração**: Storage em memória (desenvolvimento)
+**Configuração**: Storage persistente em filesystem
 
 **Recursos**:
 - Busca de traces por serviço, operação, tags
 - Visualização de spans hierárquicos
-- Mapa de dependências entre serviços
+- Integração nativa com Grafana para correlação
 - Análise de latências
+- Retenção de 7 dias
 
-**Acesso**: http://localhost:16686
+**Acesso**: http://localhost:3200
 
 ### Prometheus
 
@@ -201,9 +200,16 @@ sum by (http_route) (rate(http_server_request_duration_count{http_response_statu
 **Configuração**: Auto-provisioning de datasources e dashboards
 
 **Datasources**:
-- Prometheus (http://prometheus:9090)
-- Loki (http://loki:3100)
-- Jaeger (http://jaeger:16686)
+- Prometheus (http://prometheus:9090) - Métricas
+- Loki (http://loki:3100) - Logs
+- Tempo (http://tempo:3200) - Traces
+- Pyroscope (http://pyroscope:4040) - Profiling
+
+**Correlação Configurada**:
+- Traces → Logs (via traceID)
+- Traces → Metrics (via service.name)
+- Traces → Profiles (via service.name)
+- Metrics → Traces (via exemplars)
 
 **Credenciais Padrão**:
 - Usuário: `admin`
@@ -237,10 +243,11 @@ curl http://localhost:3000   # Grafana UI
 ### Testar Fluxo de Dados
 
 #### Traces
-1. Acessar Jaeger: http://localhost:16686
-2. Selecionar serviço (ex: `api`)
-3. Buscar traces recentes
+1. Acessar Grafana: http://localhost:3000
+2. Ir para Explore → Selecionar Tempo
+3. Buscar traces por service_name (ex: `api`)
 4. Verificar spans e latências
+5. Usar correlação para ver logs e métricas relacionadas
 
 #### Métricas
 1. Acessar Prometheus: http://localhost:9090
@@ -258,9 +265,12 @@ curl http://localhost:3000   # Grafana UI
 
 **Teste de Correlação**:
 1. Fazer requisição à API: `curl http://localhost:5001/api/accounts/10000001`
-2. Copiar `TraceId` do response header ou log
-3. Buscar no Jaeger pelo TraceId
-4. No Grafana/Loki, filtrar logs: `{service_name="api"} |= "TraceId={copiado}"`
+2. No Grafana Explore → Tempo, buscar traces do serviço `api`
+3. Selecionar um trace e usar os links de correlação:
+   - **View logs** → Abre logs relacionados no Loki
+   - **View metrics** → Abre métricas relacionadas no Prometheus
+   - **View profile** → Abre profiling relacionado no Pyroscope
+4. No Loki, filtrar logs: `{service_name="api"} |= "traceID={traceId}"`
 
 ## 🐛 Troubleshooting
 
@@ -283,17 +293,19 @@ curl http://localhost:3000   # Grafana UI
    podman exec api printenv | grep OTEL
    ```
 
-### Jaeger Não Mostra Traces
+### Tempo Não Mostra Traces
 
-1. Verificar se Jaeger está recebendo dados:
+1. Verificar se Tempo está recebendo dados:
    ```bash
-   podman logs jaeger | grep "OTLP"
+   podman logs tempo | grep -i "otlp\|trace"
    ```
 
 2. Verificar configuração do Collector:
    ```bash
-   podman exec otel-collector cat /etc/otel-collector-config.yaml | grep jaeger
+   podman exec otel-collector cat /etc/otel-collector-config.yaml | grep tempo
    ```
+
+3. Verificar se o endpoint está correto: `tempo:4317`
 
 ### Prometheus Não Coleta Métricas
 
@@ -332,17 +344,19 @@ curl http://localhost:3000   # Grafana UI
 ### Uso de Recursos (Estimado)
 
 - **OTel Collector**: ~50-100MB RAM
-- **Jaeger**: ~200-300MB RAM (memória)
+- **Tempo**: ~100-200MB RAM
 - **Prometheus**: ~100-200MB RAM
 - **Loki**: ~100-150MB RAM
 - **Grafana**: ~100-150MB RAM
-- **Total**: ~550-900MB RAM adicional
+- **Pyroscope**: ~50-100MB RAM
+- **Total**: ~500-900MB RAM adicional
 
 ### Retenção de Dados
 
-- **Jaeger**: Memória (dados perdidos ao reiniciar)
+- **Tempo**: 7 dias (configurável, storage persistente)
 - **Prometheus**: 7 dias (configurável)
 - **Loki**: 7 dias (configurável)
+- **Pyroscope**: 7 dias (configurável)
 - **Grafana**: Dashboards e configurações persistentes
 
 ## 🔒 Segurança
@@ -358,21 +372,23 @@ curl http://localhost:3000   # Grafana UI
 - Habilitar autenticação no Grafana
 - Configurar TLS para OTLP
 - Restringir exposição de portas
-- Usar storage persistente para Jaeger
 - Configurar AlertManager para notificações
 - Considerar serviços gerenciados (Grafana Cloud, etc)
+- Configurar sampling de traces se volume aumentar
 
 ## 📚 Referências
 
 - [OpenTelemetry .NET Documentation](https://opentelemetry.io/docs/instrumentation/net/)
-- [Jaeger Documentation](https://www.jaegertracing.io/docs/)
+- [Grafana Tempo Documentation](https://grafana.com/docs/tempo/)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Loki Documentation](https://grafana.com/docs/loki/)
 - [Grafana Documentation](https://grafana.com/docs/grafana/)
+- [Pyroscope Documentation](https://grafana.com/docs/pyroscope/)
 - [Repositório Base: robersonnaves/Telemetry](https://github.com/robersonnaves/Telemetry)
 
 ---
 
 **Última Atualização**: 2026-01-04  
 **Status**: ✅ Stack Completa Implementada  
-**Arquivos de Configuração**: `infra/config/`
+**Arquivos de Configuração**: `infra/config/`  
+**Docker Compose**: `infra/docker-compose.observability.yml`

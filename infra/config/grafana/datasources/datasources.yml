@@ -1,0 +1,103 @@
+apiVersion: 1
+
+datasources:
+  # Prometheus - Métricas
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      allowAsRecordingRulesTarget: true
+      prometheusType: Prometheus
+      prometheusVersion: 3.3.0
+      cacheLevel: 'High'
+      disableRecordingRules: false
+      timeInterval: 10s
+      incrementalQueryOverlapWindow: 10m
+      exemplarTraceIdDestinations:
+        # Correlação com Tempo
+        - datasourceUid: tempo
+          name: traceID
+          urlDisplayLabel: 'View in Tempo'
+
+  # Loki - Logs
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      timeout: 60
+      maxLines: 1000
+      derivedFields:
+        # Correlação com Tempo via traceID
+        - datasourceUid: tempo
+          matcherRegex: 'traceID=(\\w+)'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  # Tempo - Traces
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        # Correlação com Loki
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        tags: ['service.name', 'deployment.environment', 'service.version']
+        filterByTraceID: false
+        filterBySpanID: false
+        customQuery: true
+        query: 'service_name="$${__span.tags.service.name}"'
+      tracesToMetrics:
+        # Correlação com Prometheus
+        datasourceUid: prometheus
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        tags: [{ key: 'service.name', value: 'service_name' }]
+        queries:
+          - name: 'Request Rate'
+            query: 'sum(rate(http_server_request_duration_count{service_name="$${__span.tags.service.name}"}[5m]))'
+          - name: 'Error Rate'
+            query: 'sum(rate(http_server_request_duration_count{service_name="$${__span.tags.service.name}",http_response_status_code=~"5.."}[5m]))'
+      tracesToProfiles:
+        # Correlação com Pyroscope
+        datasourceUid: pyroscope
+        tags: ['service.name', 'deployment.environment']
+        profileTypeId: 'process_cpu:cpu:nanoseconds:cpu:nanoseconds'
+        customQuery: true
+        query: 'service_name="$${__span.tags.service.name}"'
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      traceQuery:
+        timeShiftEnabled: true
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+      spanBar:
+        type: 'Tag'
+        tag: 'http.route'
+      streamingEnabled:
+        search: true
+
+  # Pyroscope - Profiling
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    access: proxy
+    url: http://pyroscope:4040
+    jsonData:
+      httpMethod: POST
+      keepCookies: []
+

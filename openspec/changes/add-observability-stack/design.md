@@ -141,6 +141,44 @@ O projeto MyNewLittleBank já possui:
    - Integração com Grafana para visualização
    - Suporte a múltiplos formatos
 
+### Detalhes de Configuração (Baseado em Context7)
+
+#### Grafana Datasources Provisioning
+- **Localização**: `infra/config/grafana/provisioning/datasources/datasources.yml`
+- **Formato**: YAML com `apiVersion: 1`
+- **Datasources a configurar**:
+  - Prometheus: `http://prometheus:9090` com `httpMethod: POST`, `exemplarTraceIdDestinations` para correlação com Tempo
+  - Loki: `http://loki:3100` com `timeout: 60`, `maxLines: 1000`
+  - Tempo: `http://tempo:3200` com configuração de `tracesToLogs`, `tracesToMetrics`, `tracesToProfiles` para correlação completa
+  - Pyroscope: `http://pyroscope:4040` como datasource de profiling
+
+#### Prometheus Scrape Configuration
+- **Endpoint do Collector**: `otel-collector:8889/metrics`
+- **Scrape interval**: `15s` (padrão recomendado)
+- **Retention**: `--storage.tsdb.retention.time=7d`
+- **Storage path**: `/prometheus` (volume persistente)
+
+#### Loki OTLP Configuration
+- **Endpoint OTLP**: `http://loki:3100/otlp` (o Collector adiciona `/v1/logs` automaticamente)
+- **Schema**: v13 com TSDB para melhor performance
+- **Storage**: Filesystem em `/loki`
+- **Retention**: `limits_config.retention_period: 168h` (7 dias)
+- **Exporter no Collector**: `otlphttp/logs` com endpoint `http://loki/otlp`
+
+#### Tempo OTLP Configuration
+- **Receiver OTLP gRPC**: Porta `4317` (padrão OTLP)
+- **Receiver OTLP HTTP**: Porta `4318` (opcional, para compatibilidade)
+- **Endpoint no Collector**: `tempo:4317` (gRPC)
+- **Storage**: Local filesystem em `/var/tempo`
+- **Retention**: Configurado via `retention_period: 168h`
+
+#### Pyroscope HTTP Configuration
+- **API Server**: Porta `4040`
+- **Endpoint para aplicações**: `http://pyroscope:4040`
+- **Storage**: Local filesystem em `/var/lib/pyroscope`
+- **Retention**: 7 dias configurável
+- **Suporte**: Múltiplos formatos (pprof, JFR, etc) via HTTP POST
+
 ## Risks / Trade-offs
 
 ### Risk 1: Uso de Recursos

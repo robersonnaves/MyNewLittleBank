@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'mynewlittlebank'
+    environment: 'local'
+
+# Configuração de retenção via flag --storage.tsdb.retention.time=7d no docker-compose
+
+scrape_configs:
+  # Scrape métricas do OpenTelemetry Collector
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8889']
+        labels:
+          service: 'otel-collector'
+  
+  # Auto-monitoramento do Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Alertas (vazio por enquanto, será configurado em proposta separada)
+alerting:
+  alertmanagers: []
+
+# Regras de alerta (vazio por enquanto)
+rule_files: []
+

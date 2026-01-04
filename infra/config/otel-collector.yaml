@@ -1,0 +1,93 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Detecta recursos automaticamente (hostname, etc)
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+  
+  # Enriquece com atributos de resource
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+  
+  # Adiciona atributo error baseado em status codes HTTP
+  attributes/error:
+    actions:
+      - key: error
+        value: true
+        action: insert
+        conditions:
+          - key: http.status_code
+            operator: gte
+            value: 400
+  
+  # Agrupa dados para otimizar envio
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+  
+  # Limita uso de memória
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Tempo para traces distribuídos
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  
+  # Loki para logs via OTLP HTTP
+  otlphttp/logs:
+    endpoint: http://loki/otlp
+    tls:
+      insecure: true
+  
+  # Prometheus para métricas (exposição em /metrics)
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    const_labels:
+      deployment_environment: local
+  
+  # Pyroscope para profiling (opcional, via HTTP)
+  otlphttp/pyroscope:
+    endpoint: http://pyroscope:4040
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, attributes/error, memory_limiter, batch]
+      exporters: [otlp/tempo]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, memory_limiter, batch]
+      exporters: [prometheus]
+    
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, attributes/error, memory_limiter, batch]
+      exporters: [otlphttp/logs]
+

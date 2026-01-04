@@ -14,6 +14,9 @@ using UseCases.Transactions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configurar OpenTelemetry para envio ao Collector
+builder.AddObservability();
+
 builder.AddSerilogLogging();
 builder.Services.AddInfrastructureHealthChecks(builder.Configuration);
 builder.Services.AddDatabaseInfrastructure(builder.Configuration);
