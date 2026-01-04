@@ -3,13 +3,6 @@ global:
   scrape_timeout: 10s
   evaluation_interval: 15s
 
-# Configuração de retenção
-storage:
-  tsdb:
-    path: /prometheus
-    retention.time: 7d
-    retention.size: 0
-
 # Configuração de alertas (futuro)
 # alerting:
 #   alertmanagers:

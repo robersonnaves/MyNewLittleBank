@@ -48,11 +48,11 @@ limits_config:
 # Configuração de compactor
 compactor:
   working_directory: /loki/compactor
-  shared_store: filesystem
   compaction_interval: 10m
   retention_enabled: true
   retention_delete_delay: 2h
   retention_delete_worker_count: 150
+  delete_request_store: filesystem
 
 # Configuração de storage
 storage_config:
@@ -79,14 +79,9 @@ ingester:
   max_chunk_age: 1h
   chunk_target_size: 1048576
   chunk_retain_period: 30s
-  max_transfer_retries: 0
 
 # Configuração de table manager (para TSDB)
 table_manager:
   retention_deletes_enabled: true
   retention_period: 168h  # 7 dias
-
-# Configuração de pattern ingestion (habilitado)
-pattern_ingestion:
-  enabled: true
 
