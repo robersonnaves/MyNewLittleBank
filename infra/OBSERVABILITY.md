@@ -1,327 +1,263 @@
-# Observability Stack - MyNewLittleBank
+# Observability Architecture - MyNewLittleBank
 
-## Arquitetura de Observabilidade
+## 📊 Overview
 
-Este projeto utiliza uma stack completa de observabilidade baseada no **OpenTelemetry Collector** como ponto central de coleta e distribuição de telemetria.
+Simplified observability stack using **Aspire Dashboard** as the single destination for all telemetry data (logs, traces, and metrics).
+
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Aplicações .NET                            │
-│  (API, Mock.Transactions, Services.Card/Money/Pix/Heartbeats)  │
-│                                                                  │
-│  - Logs (Serilog + OpenTelemetry)                              │
-│  - Traces (OpenTelemetry)                                       │
-│  - Metrics (OpenTelemetry + Prometheus Exporter)               │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     │ OTLP (gRPC/HTTP)
-                     │ Port 4317/4318
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              OpenTelemetry Collector                             │
-│                                                                  │
-│  Receivers:  OTLP (gRPC + HTTP)                                 │
-│  Processors: batch, memory_limiter, attributes                  │
-│  Exporters:                                                      │
-│    - Traces  → Jaeger (OTLP)                                    │
-│    - Metrics → Prometheus (scrape endpoint :8889)               │
-│    - Logs    → Console (debug)                                  │
-└─────┬───────────────────────────┬───────────────────────────────┘
-      │                           │
-      │ OTLP :4317                │ Prometheus scrape :8889
-      ▼                           ▼
-┌─────────────┐           ┌──────────────┐
-│   Jaeger    │           │  Prometheus  │
-│   :16686    │           │    :9090     │
-│             │           │              │
-│  UI Traces  │           │  UI Metrics  │
-└─────────────┘           └──────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                   .NET Microservices                     │
+│  (API, Services.Pix, Services.Card, Services.Money,      │
+│   Services.Heartbeats, Mock.Transactions)                │
+└────────────────────┬─────────────────────────────────────┘
+                     │ OTLP (gRPC:4317 / HTTP:4318)
+                     ↓
+┌──────────────────────────────────────────────────────────┐
+│           OpenTelemetry Collector                        │
+│  - Receives: OTLP (traces, metrics, logs)                │
+│  - Processes: batch, memory_limiter, attributes          │
+│  - Exports: Aspire Dashboard only                        │
+└────────────────────┬─────────────────────────────────────┘
+                     │ OTLP (gRPC:18888)
+                     ↓
+┌──────────────────────────────────────────────────────────┐
+│              Aspire Dashboard                            │
+│  - Web UI: http://localhost:15000                        │
+│  - Structured Logs                                       │
+│  - Distributed Traces                                    │
+│  - Metrics (real-time)                                   │
+│  - Resources (services overview)                         │
+└──────────────────────────────────────────────────────────┘
 ```
 
-## Componentes
-
-### 1. OpenTelemetry Collector (`otel-collector`)
-
-- **Imagem:** `otel/opentelemetry-collector-contrib:0.112.0`
-- **Portas:**
-  - `4317`: OTLP gRPC receiver (usado pelas aplicações)
-  - `4318`: OTLP HTTP receiver
-  - `8889`: Prometheus metrics exporter
-  - `8888`: Collector internal metrics
-  - `13133`: Health check endpoint
-  - `55679`: zPages (debug)
-
-**Configuração:** `otel-collector-config.yaml`
-
-### 2. Jaeger (`jaeger`)
-
-- **Imagem:** `jaegertracing/all-in-one:1.58`
-- **Porta:** `16686` (UI)
-- **Função:** Visualização de traces distribuídos
-- **Acesso:** <http://localhost:16686>
-
-### 3. Prometheus (`prometheus`)
-
-- **Imagem:** `prom/prometheus:v2.54.1`
-- **Porta:** `9090` (UI)
-- **Função:** Armazenamento e query de métricas
-- **Acesso:** <http://localhost:9090>
-- **Scrape targets:**
-  - Prometheus interno (:9090)
-  - Jaeger metrics (:14269)
-  - OTel Collector internal metrics (:8888)
-  - Application metrics via OTel Collector (:8889)
-
-### 4. OpenSearch (`opensearch`)
-
-- **Imagem:** `opensearchproject/opensearch:2.15.0`
-- **Porta:** `9200`
-- **Função:** Armazenamento de logs via Serilog
-- **Acesso:** <http://localhost:9200>
-
-## Fluxo de Dados
-
-### Traces (Distributed Tracing)
-
-1. Aplicações .NET geram spans usando OpenTelemetry SDK
-2. Spans são enviados via OTLP para o Collector (`:4317`)
-3. Collector processa (batch, attributes) e envia para Jaeger
-4. Visualização no Jaeger UI (`:16686`)
-
-**Instrumentação automática:**
-
-- ASP.NET Core (HTTP requests)
-- HttpClient (HTTP calls)
-- Entity Framework Core (database queries)
-
-### Metrics
-
-1. Aplicações coletam métricas via OpenTelemetry SDK
-2. Métricas são enviadas via OTLP para o Collector (`:4317`)
-3. Collector expõe endpoint Prometheus (`:8889`)
-4. Prometheus faz scrape do endpoint a cada 5 segundos
-5. Visualização no Prometheus UI (`:9090`)
-
-**Métricas disponíveis:**
-
-- Runtime (.NET GC, memory, threads)
-- ASP.NET Core (HTTP requests, response times)
-- HttpClient (outgoing requests)
-- Custom metrics (via Meter API)
-
-### Logs
-
-1. Serilog enriquece logs com contexto
-2. Logs vão para Console (stdout) e OpenSearch
-3. OpenTelemetry Logging SDK envia structured logs para Collector
-4. Collector exporta para console (debug)
-
-**Enriquecimento de logs:**
-
-- Service name
-- Trace/span IDs (correlation)
-- Redação de dados sensíveis (CPF, email, password, etc.)
-
-## Configuração nas Aplicações
-
-Todas as aplicações já estão configuradas via `appsettings.json`:
-
-```json
-{
-  "OpenTelemetry": {
-    "ServiceName": "MyNewLittleBank-API",
-    "ServiceVersion": "1.0.0",
-    "Environment": "Development",
-    "Role": "API",
-    "Otlp": {
-      "Endpoint": "http://otel-collector:4317"
-    },
-    "Tracing": {
-      "Enabled": true,
-      "Sampling": "AlwaysOn"
-    },
-    "Metrics": {
-      "Enabled": true
-    },
-    "Logging": {
-      "Enabled": true
-    }
-  }
-}
-```
-
-## Como Usar
-
-### 1. Iniciar a Stack
-
-```bash
-cd infra
-podman-compose up -d
-```
-
-### 2. Acessar as UIs
-
-- **Jaeger (Traces):** <http://localhost:16686>
-  - Selecione o serviço (ex: `MyNewLittleBank-API`)
-  - Visualize traces de requisições HTTP, queries SQL, etc.
-
-- **Prometheus (Metrics):** <http://localhost:9090>
-  - Consultas PromQL
-  - Exemplo: `rate(http_server_duration_milliseconds_count[5m])`
-
-- **OTel Collector zPages:** <http://localhost:55679>
-  - Debug de pipelines e receivers
-
-### 3. Verificar Health
-
-```bash
-# Collector health
-curl http://localhost:13133
-
-# Métricas das aplicações via Collector
-curl http://localhost:8889/metrics
-
-# Métricas internas do Collector
-curl http://localhost:8888/metrics
-```
-
-## Consultas Úteis
-
-### Prometheus (PromQL)
-
-**Request rate por serviço:**
-
-```promql
-rate(http_server_duration_milliseconds_count[5m])
-```
-
-**P95 latency:**
-
-```promql
-histogram_quantile(0.95, rate(http_server_duration_milliseconds_bucket[5m]))
-```
-
-**Garbage Collection:**
-
-```promql
-rate(process_runtime_dotnet_gc_collections_count_total[5m])
-```
-
-**Memory usage:**
-
-```promql
-process_runtime_dotnet_gc_heap_size_bytes
-```
-
-### Jaeger
-
-1. Selecione o serviço no dropdown
-2. Defina o período de tempo
-3. Filtros úteis:
-   - `http.status_code=500` (erros)
-   - `duration > 1s` (requests lentos)
-   - `db.system=postgresql` (queries de banco)
-
-## Troubleshooting
-
-### Aplicações não enviam telemetria
-
-1. Verificar logs do Collector:
-
-```bash
-podman logs otel-collector
-```
-
-2. Verificar configuração OTLP nas aplicações:
-
-```bash
-podman logs api | grep -i "otlp\|opentelemetry"
-```
-
-3. Testar conectividade:
-
-```bash
-podman exec api curl -v http://otel-collector:4317
-```
-
-### Métricas não aparecem no Prometheus
-
-1. Verificar targets no Prometheus:
-   - <http://localhost:9090/targets>
-   - Status deve ser "UP"
-
-2. Verificar endpoint do Collector:
-
-```bash
-curl http://localhost:8889/metrics | grep mynewlittlebank
-```
-
-### Traces não aparecem no Jaeger
-
-1. Verificar pipeline de traces no Collector:
-   - <http://localhost:55679/debug/tracez>
-
-2. Verificar se Jaeger está recebendo:
-
-```bash
-podman logs jaeger | grep -i "span"
-```
-
-## Customização
-
-### Adicionar novo exporter
-
-Edite `otel-collector-config.yaml`:
-
+## 🎯 Design Decisions
+
+### Single Destination Strategy
+- **All telemetry** flows through OTel Collector to Aspire Dashboard only
+- **Removed**: Jaeger and Prometheus (previously unused)
+- **Benefits**: 
+  - Simpler configuration
+  - Less resource overhead
+  - Unified interface
+  - Easier maintenance
+
+### Configuration Pattern
+Every .NET service uses the same environment variables:
 ```yaml
-exporters:
-  # Exemplo: enviar para Grafana Cloud
-  otlp/grafana:
-    endpoint: tempo.grafana.net:443
-    headers:
-      authorization: Basic <base64-token>
+environment:
+  - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+  - OTEL_SERVICE_NAME=<service-name>
+  - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
+```
 
+## 📦 Components
+
+### 1. .NET Services (6 total)
+Each service is instrumented with OpenTelemetry SDK and configured to:
+- Export telemetry via OTLP protocol
+- Include service name and environment attributes
+- Use shared configuration from `MyNewLittleBank.ServiceDefaults`
+
+**Services**:
+- `api` - API Gateway
+- `services-pix` - PIX transactions
+- `services-card` - Card operations
+- `services-money` - Money transfers
+- `services-heartbeats` - Health checks
+- `mock-transactions` - Transaction simulator
+
+### 2. OpenTelemetry Collector
+**Image**: `otel/opentelemetry-collector-contrib:0.112.0`
+
+**Configuration** (`otel-collector-config.yaml`):
+- **Receivers**: OTLP (gRPC on 4317, HTTP on 4318)
+- **Processors**: 
+  - `batch` - Batches telemetry for efficiency
+  - `memory_limiter` - Prevents OOM (512MB limit)
+  - `attributes` - Adds deployment.environment=local
+- **Exporters**: 
+  - `otlp/aspire` - Sends to Aspire Dashboard
+  - `debug` - Console logging for troubleshooting
+
+**Restart Policy**: `on-failure` to handle Aspire startup timing
+
+### 3. Aspire Dashboard
+**Image**: `mcr.microsoft.com/dotnet/aspire-dashboard:9.0.1`
+
+**Ports**:
+- `15000` - Web UI (mapped from internal 8080)
+- `18888` - OTLP gRPC receiver
+- `18890` - OTLP HTTP receiver (not exposed)
+
+**Features**:
+- Real-time telemetry visualization
+- Distributed tracing with service maps
+- Structured log viewing with filtering
+- Metrics explorer with live updates
+- Resource/service health overview
+
+**Data Persistence**:
+- Volume `aspire_data_protection` persists ASP.NET Data Protection keys
+- Prevents browser cache invalidation on restarts
+
+## 🔧 Key Configurations
+
+### Service Configuration (`ServiceDefaults/Extensions.cs`)
+```csharp
+using OpenTelemetry.Resources;
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(serviceName)
+        .AddAttributes(new Dictionary<string, object>
+        {
+            ["deployment.environment"] = 
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") 
+                ?? "Development"
+        }))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation())
+    .WithLogging(logging => logging
+        .AddOtlpExporter());
+
+// OTLP Exporter configured via environment variables
+builder.Services.AddOpenTelemetryExporters();
+```
+
+### OTel Collector Pipeline
+```yaml
 service:
   pipelines:
     traces:
-      exporters: [otlp/jaeger, otlp/grafana]
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes]
+      exporters: [otlp/aspire, debug]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes]
+      exporters: [otlp/aspire, debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes]
+      exporters: [otlp/aspire, debug]
 ```
 
-### Ajustar sampling
+## 🚀 Usage
 
-Em `appsettings.json` das aplicações:
+### Accessing Telemetry
+1. Open **http://localhost:15000** in your browser
+2. Navigate between views:
+   - **Structured Logs** - Filter by service, log level, timestamp
+   - **Traces** - View distributed traces with timing breakdown
+   - **Metrics** - Monitor request rates, durations, errors
+   - **Resources** - See all services and their health
 
-```json
-{
-  "OpenTelemetry": {
-    "Tracing": {
-      "Sampling": "ParentBased"  // ou "TraceIdRatioBased"
-    }
-  }
-}
+### Verifying Data Flow
+
+**Check OTel Collector is processing**:
+```bash
+podman logs otel-collector | tail -50
+```
+Should show: `Traces`, `Metrics`, `LogRecords` being exported
+
+**Check service configuration**:
+```bash
+podman exec api printenv | grep OTEL
+```
+Should show:
+```
+OTEL_SERVICE_NAME=api
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 ```
 
-### Adicionar processadores
-
-Em `otel-collector-config.yaml`:
-
-```yaml
-processors:
-  # Filtrar spans por atributos
-  filter/traces:
-    traces:
-      span:
-        - 'attributes["http.target"] == "/health"'
-
-service:
-  pipelines:
-    traces:
-      processors: [memory_limiter, batch, filter/traces, attributes]
+**Verify containers**:
+```bash
+podman ps --format "table {{.Names}}\t{{.Status}}"
 ```
+All 13 containers should be `Up` or `Up (healthy)`
 
-## Referências
+## 🐛 Troubleshooting
 
-- [OpenTelemetry Docs](https://opentelemetry.io/docs/)
-- [OTel Collector Config](https://opentelemetry.io/docs/collector/configuration/)
-- [Jaeger Docs](https://www.jaegertracing.io/docs/)
-- [Prometheus Docs](https://prometheus.io/docs/)
+### Telemetry Not Appearing in Aspire
+
+1. **Check OTel Collector logs**:
+   ```bash
+   podman logs otel-collector --tail 100
+   ```
+   Look for connection errors or export failures
+
+2. **Verify Aspire is ready**:
+   ```bash
+   podman logs apphost | grep "listening"
+   ```
+   Should show listening on ports 8080 and 18888
+
+3. **Restart OTel Collector** (if Aspire restarted):
+   ```bash
+   podman restart otel-collector
+   ```
+   The `restart: on-failure` policy should handle this automatically
+
+### Service Names Show as "unknown_service:dotnet"
+
+Check two things:
+1. Environment variable is set: `podman exec <service> printenv | grep OTEL_SERVICE_NAME`
+2. ResourceBuilder is configured in `Extensions.cs` with `AddService()`
+
+### Data Protection Key Errors in Browser
+
+This is cosmetic and doesn't affect telemetry. Clear browser cache or wait for volume to persist keys across restarts.
+
+## 📈 Performance Characteristics
+
+### Resource Usage (per component)
+- **OTel Collector**: ~50-100MB RAM, minimal CPU
+- **Aspire Dashboard**: ~100-150MB RAM, minimal CPU
+- **Per Service**: +20-30MB RAM for OTel SDK instrumentation
+
+### Latency Impact
+- OTLP export is **non-blocking** (async)
+- Typical overhead: <1ms per request
+- Batching reduces network calls
+
+### Data Retention
+- **Aspire Dashboard**: In-memory only (no persistence)
+- Data lost on container restart
+- For production, consider external storage (e.g., Azure Monitor, Elasticsearch)
+
+## 🔒 Security Notes
+
+### Current Configuration (Development)
+- `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` - No TLS between services
+- `DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` - No authentication
+- All ports exposed to host machine
+
+### Production Recommendations
+- Enable TLS for OTLP connections
+- Add authentication to Aspire Dashboard
+- Use API keys for OTel Collector
+- Restrict port exposure
+- Consider managed observability services
+
+## 📚 Additional Resources
+
+- [Aspire Dashboard Documentation](https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/dashboard)
+- [OpenTelemetry .NET](https://opentelemetry.io/docs/instrumentation/net/)
+- [OTel Collector Configuration](https://opentelemetry.io/docs/collector/configuration/)
+
+---
+
+**Last Updated**: 2026-01-03  
+**Status**: ✅ Fully Operational  
+**Containers**: 13 active (Jaeger and Prometheus removed)

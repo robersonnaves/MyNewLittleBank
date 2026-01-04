@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace MyNewLittleBank.ServiceDefaults;
@@ -34,6 +35,15 @@ public static class Extensions
 
     public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)
     {
+        var serviceName = builder.Configuration["OTEL_SERVICE_NAME"] ?? builder.Environment.ApplicationName;
+        var environment = "local";
+        
+        var envAttribute = builder.Configuration["OTEL_RESOURCE_ATTRIBUTES"];
+        if (!string.IsNullOrEmpty(envAttribute) && envAttribute.Contains("deployment.environment="))
+        {
+            environment = envAttribute.Split('=')[1];
+        }
+
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
@@ -41,14 +51,18 @@ public static class Extensions
         });
 
         builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName)
+                .AddAttributes(new Dictionary<string, object>
+                {
+                    ["deployment.environment"] = environment
+                }))
             .WithMetrics(metrics =>
             {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation();
                 
-                // Adicionar Meters customizados se necessário
-                var serviceName = builder.Configuration["OTEL_SERVICE_NAME"] ?? builder.Environment.ApplicationName;
                 metrics.AddMeter(serviceName);
             })
             .WithTracing(tracing =>
@@ -59,8 +73,6 @@ public static class Extensions
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation();
 
-                // Adicionar Sources customizados
-                var serviceName = builder.Configuration["OTEL_SERVICE_NAME"] ?? builder.Environment.ApplicationName;
                 tracing.AddSource(serviceName);
                 tracing.AddSource("Rebus.Messaging");
             });

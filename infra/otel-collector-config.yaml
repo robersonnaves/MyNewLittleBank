@@ -30,17 +30,6 @@ exporters:
     endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     tls:
       insecure: true
-
-  # Exportar traces para Jaeger
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
-  
-  # Exportar métricas para Prometheus via endpoint
-  prometheus:
-    endpoint: 0.0.0.0:8889
-    namespace: mynewlittlebank
   
   # Debug exporter para logs (opcional, comentar em produção)
   debug:
@@ -63,12 +52,12 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, attributes]
-      exporters: [otlp/jaeger, otlp/aspire, debug]
+      exporters: [otlp/aspire, debug]
     
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch, attributes]
-      exporters: [prometheus, otlp/aspire, debug]
+      exporters: [otlp/aspire, debug]
     
     logs:
       receivers: [otlp]
