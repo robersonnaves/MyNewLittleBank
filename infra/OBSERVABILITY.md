@@ -2,262 +2,377 @@
 
 ## 📊 Overview
 
-Simplified observability stack using **Aspire Dashboard** as the single destination for all telemetry data (logs, traces, and metrics).
+O projeto MyNewLittleBank utiliza uma stack de observabilidade completa com **OpenTelemetry Collector** como hub central, roteando telemetria para múltiplos backends:
+
+- **Aspire Dashboard** - Visualização em tempo real (desenvolvimento)
+- **Jaeger** - Rastreamento distribuído de traces
+- **Prometheus** - Armazenamento e consulta de métricas time-series
+- **Loki** - Centralização de logs estruturados
+- **Grafana** - Visualização unificada de todos os sinais
 
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                   .NET Microservices                     │
-│  (API, Services.Pix, Services.Card, Services.Money,      │
-│   Services.Heartbeats, Mock.Transactions)                │
-└────────────────────┬─────────────────────────────────────┘
-                     │ OTLP (gRPC:4317 / HTTP:4318)
-                     ↓
-┌──────────────────────────────────────────────────────────┐
-│           OpenTelemetry Collector                        │
-│  - Receives: OTLP (traces, metrics, logs)                │
-│  - Processes: batch, memory_limiter, attributes          │
-│  - Exports: Aspire Dashboard only                        │
-└────────────────────┬─────────────────────────────────────┘
-                     │ OTLP (gRPC:18888)
-                     ↓
-┌──────────────────────────────────────────────────────────┐
-│              Aspire Dashboard                            │
-│  - Web UI: http://localhost:15000                        │
-│  - Structured Logs                                       │
-│  - Distributed Traces                                    │
-│  - Metrics (real-time)                                   │
-│  - Resources (services overview)                         │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                      Aplicações .NET                             │
+│  (API, Services.Card, Services.Money, Services.Pix, etc)        │
+└────────────┬─────────────────────────────────────────┬──────────┘
+             │ OTLP gRPC (4317)                        │
+             │ OTLP HTTP (4318)                        │
+             ▼                                         │
+┌────────────────────────────────────┐                │
+│   OpenTelemetry Collector          │                │
+│   - Recebe telemetria via OTLP     │                │
+│   - Processa e enriquece dados     │                │
+│   - Roteia para backends           │                │
+└─────┬──────────┬──────────┬────────┘                │
+      │          │          │                         │
+      ▼          ▼          ▼                         │
+┌─────────┐ ┌─────────┐ ┌─────────┐                  │
+│ Jaeger  │ │Prometh  │ │  Loki   │◄─────────────────┘
+│ (Traces)│ │(Metrics)│ │ (Logs)  │ HTTP Push API
+└────┬────┘ └────┬────┘ └────┬────┘
+     │           │           │
+     └───────────┴───────────┴──────────┐
+                                        │
+                            ┌───────────▼─────────┐
+                            │      Grafana        │
+                            │   (Visualização)    │
+                            └─────────────────────┘
+                                    │
+                                    │ (também)
+                                    ▼
+                            ┌─────────────────────┐
+                            │  Aspire Dashboard   │
+                            │   (Desenvolvimento) │
+                            └─────────────────────┘
 ```
 
-## 🎯 Design Decisions
+## 📦 Componentes da Stack
 
-### Single Destination Strategy
-- **All telemetry** flows through OTel Collector to Aspire Dashboard only
-- **Removed**: Jaeger and Prometheus (previously unused)
-- **Benefits**: 
-  - Simpler configuration
-  - Less resource overhead
-  - Unified interface
-  - Easier maintenance
+| Componente | Função | Porta Principal | URL |
+|------------|--------|-----------------|-----|
+| **OpenTelemetry Collector** | Coletor central de telemetria | 4317 (gRPC), 4318 (HTTP) | - |
+| **Jaeger** | Backend de traces distribuídos | 16686 (UI) | http://localhost:16686 |
+| **Prometheus** | Backend de métricas time-series | 9090 (UI) | http://localhost:9090 |
+| **Loki** | Backend de logs estruturados | 3100 (API) | http://localhost:3100 |
+| **Grafana** | Visualização unificada | 3000 (UI) | http://localhost:3000 |
+| **Aspire Dashboard** | Visualização em tempo real (dev) | 15000 (UI) | http://localhost:15000 |
 
-### Configuration Pattern
-Every .NET service uses the same environment variables:
+## 🚀 Iniciando a Stack de Observabilidade
+
+### Opção 1: Stack Completa (Recomendado)
+
+```bash
+cd infra
+
+# Iniciar stack principal (aplicações)
+podman-compose up -d
+
+# Iniciar stack de observabilidade
+podman-compose -f docker-compose.observability.yml up -d
+```
+
+### Opção 2: Apenas Aspire (Desenvolvimento Rápido)
+
+```bash
+cd infra
+podman-compose up -d
+# Aspire Dashboard estará disponível em http://localhost:15000
+```
+
+### Parar a Stack de Observabilidade
+
+```bash
+cd infra
+podman-compose -f docker-compose.observability.yml down
+```
+
+## 🔧 Configuração
+
+### Variáveis de Ambiente dos Serviços .NET
+
+Todos os serviços .NET utilizam as mesmas variáveis de ambiente:
+
 ```yaml
 environment:
   - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+  - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
   - OTEL_SERVICE_NAME=<service-name>
-  - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
+  - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.version=1.0.0
+  - OTEL_LOGS_EXPORTER=otlp
+  - OTEL_DOTNET_AUTO_LOGS_INCLUDE_FORMATTED_MESSAGE=true
 ```
 
-## 📦 Components
+### OpenTelemetry Collector
 
-### 1. .NET Services (6 total)
-Each service is instrumented with OpenTelemetry SDK and configured to:
-- Export telemetry via OTLP protocol
-- Include service name and environment attributes
-- Use shared configuration from `MyNewLittleBank.ServiceDefaults`
+**Arquivo**: `infra/config/otel-collector.yaml`
 
-**Services**:
-- `api` - API Gateway
-- `services-pix` - PIX transactions
-- `services-card` - Card operations
-- `services-money` - Money transfers
-- `services-heartbeats` - Health checks
-- `mock-transactions` - Transaction simulator
+**Receivers**:
+- OTLP gRPC na porta 4317
+- OTLP HTTP na porta 4318
 
-### 2. OpenTelemetry Collector
-**Image**: `otel/opentelemetry-collector-contrib:0.112.0`
+**Processors**:
+- `resourcedetection` - Detecta ambiente e hostname automaticamente
+- `resource` - Enriquece com service.name e deployment.environment
+- `batch` - Agrupa dados para otimizar envio
+- `attributes` - Adiciona/modifica atributos
+- `memory_limiter` - Limita uso de memória (512MB)
 
-**Configuration** (`otel-collector-config.yaml`):
-- **Receivers**: OTLP (gRPC on 4317, HTTP on 4318)
-- **Processors**: 
-  - `batch` - Batches telemetry for efficiency
-  - `memory_limiter` - Prevents OOM (512MB limit)
-  - `attributes` - Adds deployment.environment=local
-- **Exporters**: 
-  - `otlp/aspire` - Sends to Aspire Dashboard
-  - `debug` - Console logging for troubleshooting
+**Exporters**:
+- `otlp/aspire` - Aspire Dashboard (compatibilidade)
+- `otlp/jaeger` - Jaeger para traces
+- `prometheus` - Exposição de métricas em /metrics
+- `loki` - Loki para logs
 
-**Restart Policy**: `on-failure` to handle Aspire startup timing
+**Pipelines**:
+- `traces` → Jaeger + Aspire
+- `metrics` → Prometheus + Aspire
+- `logs` → Loki + Aspire
 
-### 3. Aspire Dashboard
-**Image**: `mcr.microsoft.com/dotnet/aspire-dashboard:9.0.1`
+### Jaeger
 
-**Ports**:
-- `15000` - Web UI (mapped from internal 8080)
-- `18888` - OTLP gRPC receiver
-- `18890` - OTLP HTTP receiver (not exposed)
+**Configuração**: Storage em memória (desenvolvimento)
 
-**Features**:
-- Real-time telemetry visualization
-- Distributed tracing with service maps
-- Structured log viewing with filtering
-- Metrics explorer with live updates
-- Resource/service health overview
+**Recursos**:
+- Busca de traces por serviço, operação, tags
+- Visualização de spans hierárquicos
+- Mapa de dependências entre serviços
+- Análise de latências
 
-**Data Persistence**:
-- Volume `aspire_data_protection` persists ASP.NET Data Protection keys
-- Prevents browser cache invalidation on restarts
+**Acesso**: http://localhost:16686
 
-## 🔧 Key Configurations
+### Prometheus
 
-### Service Configuration (`ServiceDefaults/Extensions.cs`)
-```csharp
-using OpenTelemetry.Resources;
+**Arquivo**: `infra/config/prometheus.yml`
 
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource
-        .AddService(serviceName)
-        .AddAttributes(new Dictionary<string, object>
-        {
-            ["deployment.environment"] = 
-                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") 
-                ?? "Development"
-        }))
-    .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddEntityFrameworkCoreInstrumentation())
-    .WithMetrics(metrics => metrics
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation())
-    .WithLogging(logging => logging
-        .AddOtlpExporter());
+**Configuração**:
+- Scrape interval: 15s
+- Retention: 7 dias
+- Targets:
+  - `otel-collector:8889` - Métricas do collector
+  - `prometheus:9090` - Auto-monitoramento
 
-// OTLP Exporter configured via environment variables
-builder.Services.AddOpenTelemetryExporters();
+**Acesso**: http://localhost:9090
+
+**Queries Úteis**:
+```promql
+# Taxa de requisições
+rate(http_server_request_duration_count[5m])
+
+# Latência P95
+histogram_quantile(0.95, rate(http_server_request_duration_bucket[5m]))
+
+# Erros por endpoint
+sum by (http_route) (rate(http_server_request_duration_count{http_response_status_code=~"5.."}[5m]))
 ```
 
-### OTel Collector Pipeline
-```yaml
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [memory_limiter, batch, attributes]
-      exporters: [otlp/aspire, debug]
-    
-    metrics:
-      receivers: [otlp]
-      processors: [memory_limiter, batch, attributes]
-      exporters: [otlp/aspire, debug]
-    
-    logs:
-      receivers: [otlp]
-      processors: [memory_limiter, batch, attributes]
-      exporters: [otlp/aspire, debug]
+### Loki
+
+**Arquivo**: `infra/config/loki.yml`
+
+**Configuração**:
+- Schema: v13 com TSDB
+- Storage: Filesystem persistente
+- Retention: 7 dias
+- Suporte a structured metadata e pattern ingestion
+
+**Labels Automáticos**:
+- `service_name`: Nome do serviço
+- `level`: Nível do log (INFO, ERROR, etc)
+- `deployment_environment`: Ambiente (local, prod, etc)
+
+**Acesso via Grafana**: http://localhost:3000 → Explore → Loki
+
+**Queries Úteis**:
+```logql
+# Logs de um serviço específico
+{service_name="api"}
+
+# Logs de erro
+{service_name="api"} |= "ERROR"
+
+# Logs com TraceId específico
+{service_name="api"} |= "TraceId=abc123"
 ```
 
-## 🚀 Usage
+### Grafana
 
-### Accessing Telemetry
-1. Open **http://localhost:15000** in your browser
-2. Navigate between views:
-   - **Structured Logs** - Filter by service, log level, timestamp
-   - **Traces** - View distributed traces with timing breakdown
-   - **Metrics** - Monitor request rates, durations, errors
-   - **Resources** - See all services and their health
+**Configuração**: Auto-provisioning de datasources e dashboards
 
-### Verifying Data Flow
+**Datasources**:
+- Prometheus (http://prometheus:9090)
+- Loki (http://loki:3100)
+- Jaeger (http://jaeger:16686)
 
-**Check OTel Collector is processing**:
+**Credenciais Padrão**:
+- Usuário: `admin`
+- Senha: `admin`
+
+**Acesso**: http://localhost:3000
+
+## ✅ Validação
+
+### Verificar Serviços
+
 ```bash
-podman logs otel-collector | tail -50
-```
-Should show: `Traces`, `Metrics`, `LogRecords` being exported
+# Status de todos os containers
+podman ps
 
-**Check service configuration**:
-```bash
-podman exec api printenv | grep OTEL
-```
-Should show:
-```
-OTEL_SERVICE_NAME=api
-OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+# Verificar logs
+podman logs otel-collector
+podman logs jaeger
+podman logs prometheus
+podman logs loki
+podman logs grafana
+
+# Health checks
+curl http://localhost:13133  # OTel Collector health
+curl http://localhost:16686  # Jaeger UI
+curl http://localhost:9090   # Prometheus UI
+curl http://localhost:3100/ready  # Loki readiness
+curl http://localhost:3000   # Grafana UI
 ```
 
-**Verify containers**:
-```bash
-podman ps --format "table {{.Names}}\t{{.Status}}"
-```
-All 13 containers should be `Up` or `Up (healthy)`
+### Testar Fluxo de Dados
+
+#### Traces
+1. Acessar Jaeger: http://localhost:16686
+2. Selecionar serviço (ex: `api`)
+3. Buscar traces recentes
+4. Verificar spans e latências
+
+#### Métricas
+1. Acessar Prometheus: http://localhost:9090
+2. Executar query: `rate(http_server_request_duration_count[5m])`
+3. Verificar se há dados dos serviços
+
+#### Logs
+1. Acessar Grafana: http://localhost:3000
+2. Ir para Explore
+3. Selecionar Loki datasource
+4. Query: `{service_name="api"}`
+5. Verificar logs estruturados
+
+### Correlação de Dados
+
+**Teste de Correlação**:
+1. Fazer requisição à API: `curl http://localhost:5001/api/accounts/10000001`
+2. Copiar `TraceId` do response header ou log
+3. Buscar no Jaeger pelo TraceId
+4. No Grafana/Loki, filtrar logs: `{service_name="api"} |= "TraceId={copiado}"`
 
 ## 🐛 Troubleshooting
 
-### Telemetry Not Appearing in Aspire
+### Telemetry Não Aparece nos Backends
 
-1. **Check OTel Collector logs**:
+1. **Verificar OTel Collector**:
    ```bash
    podman logs otel-collector --tail 100
    ```
-   Look for connection errors or export failures
+   Procurar por erros de conexão ou export failures
 
-2. **Verify Aspire is ready**:
+2. **Verificar se backends estão prontos**:
    ```bash
-   podman logs apphost | grep "listening"
+   podman ps --format "table {{.Names}}\t{{.Status}}"
    ```
-   Should show listening on ports 8080 and 18888
+   Todos devem estar `Up` ou `Up (healthy)`
 
-3. **Restart OTel Collector** (if Aspire restarted):
+3. **Verificar variáveis de ambiente dos serviços**:
    ```bash
-   podman restart otel-collector
+   podman exec api printenv | grep OTEL
    ```
-   The `restart: on-failure` policy should handle this automatically
 
-### Service Names Show as "unknown_service:dotnet"
+### Jaeger Não Mostra Traces
 
-Check two things:
-1. Environment variable is set: `podman exec <service> printenv | grep OTEL_SERVICE_NAME`
-2. ResourceBuilder is configured in `Extensions.cs` with `AddService()`
+1. Verificar se Jaeger está recebendo dados:
+   ```bash
+   podman logs jaeger | grep "OTLP"
+   ```
 
-### Data Protection Key Errors in Browser
+2. Verificar configuração do Collector:
+   ```bash
+   podman exec otel-collector cat /etc/otel-collector-config.yaml | grep jaeger
+   ```
 
-This is cosmetic and doesn't affect telemetry. Clear browser cache or wait for volume to persist keys across restarts.
+### Prometheus Não Coleta Métricas
 
-## 📈 Performance Characteristics
+1. Verificar targets no Prometheus UI: http://localhost:9090/targets
+2. Verificar se Collector expõe métricas:
+   ```bash
+   curl http://localhost:8889/metrics
+   ```
 
-### Resource Usage (per component)
-- **OTel Collector**: ~50-100MB RAM, minimal CPU
-- **Aspire Dashboard**: ~100-150MB RAM, minimal CPU
-- **Per Service**: +20-30MB RAM for OTel SDK instrumentation
+### Loki Não Recebe Logs
 
-### Latency Impact
-- OTLP export is **non-blocking** (async)
-- Typical overhead: <1ms per request
-- Batching reduces network calls
+1. Verificar se Loki está pronto:
+   ```bash
+   curl http://localhost:3100/ready
+   ```
 
-### Data Retention
-- **Aspire Dashboard**: In-memory only (no persistence)
-- Data lost on container restart
-- For production, consider external storage (e.g., Azure Monitor, Elasticsearch)
+2. Verificar configuração do Collector para Loki:
+   ```bash
+   podman logs otel-collector | grep -i loki
+   ```
 
-## 🔒 Security Notes
+### Grafana Não Conecta aos Datasources
 
-### Current Configuration (Development)
-- `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` - No TLS between services
-- `DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` - No authentication
-- All ports exposed to host machine
+1. Verificar logs do Grafana:
+   ```bash
+   podman logs grafana | grep -i datasource
+   ```
 
-### Production Recommendations
-- Enable TLS for OTLP connections
-- Add authentication to Aspire Dashboard
-- Use API keys for OTel Collector
-- Restrict port exposure
-- Consider managed observability services
+2. Verificar arquivo de configuração:
+   ```bash
+   cat infra/config/grafana/datasources/datasources.yml
+   ```
 
-## 📚 Additional Resources
+## 📈 Performance e Recursos
 
-- [Aspire Dashboard Documentation](https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/dashboard)
-- [OpenTelemetry .NET](https://opentelemetry.io/docs/instrumentation/net/)
-- [OTel Collector Configuration](https://opentelemetry.io/docs/collector/configuration/)
+### Uso de Recursos (Estimado)
+
+- **OTel Collector**: ~50-100MB RAM
+- **Jaeger**: ~200-300MB RAM (memória)
+- **Prometheus**: ~100-200MB RAM
+- **Loki**: ~100-150MB RAM
+- **Grafana**: ~100-150MB RAM
+- **Total**: ~550-900MB RAM adicional
+
+### Retenção de Dados
+
+- **Jaeger**: Memória (dados perdidos ao reiniciar)
+- **Prometheus**: 7 dias (configurável)
+- **Loki**: 7 dias (configurável)
+- **Grafana**: Dashboards e configurações persistentes
+
+## 🔒 Segurança
+
+### Configuração Atual (Desenvolvimento)
+
+- Sem autenticação nos backends
+- Sem TLS entre componentes
+- Portas expostas para host
+
+### Recomendações para Produção
+
+- Habilitar autenticação no Grafana
+- Configurar TLS para OTLP
+- Restringir exposição de portas
+- Usar storage persistente para Jaeger
+- Configurar AlertManager para notificações
+- Considerar serviços gerenciados (Grafana Cloud, etc)
+
+## 📚 Referências
+
+- [OpenTelemetry .NET Documentation](https://opentelemetry.io/docs/instrumentation/net/)
+- [Jaeger Documentation](https://www.jaegertracing.io/docs/)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Loki Documentation](https://grafana.com/docs/loki/)
+- [Grafana Documentation](https://grafana.com/docs/grafana/)
+- [Repositório Base: robersonnaves/Telemetry](https://github.com/robersonnaves/Telemetry)
 
 ---
 
-**Last Updated**: 2026-01-03  
-**Status**: ✅ Fully Operational  
-**Containers**: 13 active (Jaeger and Prometheus removed)
+**Última Atualização**: 2026-01-04  
+**Status**: ✅ Stack Completa Implementada  
+**Arquivos de Configuração**: `infra/config/`

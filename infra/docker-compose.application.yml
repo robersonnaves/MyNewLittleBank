@@ -155,11 +155,8 @@ services:
       - MockTransactions__TransactionType=all
       - MockTransactions__MessagesPerSecond=2
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=mock-transactions
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.version=1.0.0
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_DOTNET_AUTO_LOGS_INCLUDE_FORMATTED_MESSAGE=true
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
     restart: on-failure
     networks:
       - bank-net
@@ -188,11 +185,8 @@ services:
       - RabbitMQ__RoutingKey=card.transactions
       - Notifications__BaseUrl=http://notification-receiver:8080
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=services-card
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.version=1.0.0
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_DOTNET_AUTO_LOGS_INCLUDE_FORMATTED_MESSAGE=true
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
     restart: on-failure
     networks:
       - bank-net
@@ -216,11 +210,8 @@ services:
       - RabbitMQ__UserName=guest
       - RabbitMQ__Password=guest
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=services-heartbeats
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.version=1.0.0
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_DOTNET_AUTO_LOGS_INCLUDE_FORMATTED_MESSAGE=true
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
     restart: on-failure
     networks:
       - bank-net
@@ -249,11 +240,8 @@ services:
       - RabbitMQ__RoutingKey=money.transactions
       - Notifications__BaseUrl=http://notification-receiver:8080
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=services-money
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.version=1.0.0
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_DOTNET_AUTO_LOGS_INCLUDE_FORMATTED_MESSAGE=true
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
     restart: on-failure
     networks:
       - bank-net
@@ -282,11 +270,8 @@ services:
       - RabbitMQ__RoutingKey=pix.transactions
       - Notifications__BaseUrl=http://notification-receiver:8080
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_SERVICE_NAME=services-pix
-      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.version=1.0.0
-      - OTEL_LOGS_EXPORTER=otlp
-      - OTEL_DOTNET_AUTO_LOGS_INCLUDE_FORMATTED_MESSAGE=true
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local
     restart: on-failure
     networks:
       - bank-net
@@ -347,97 +332,6 @@ services:
     networks:
       - bank-net
 
-  # Stack de Observabilidade
-  jaeger:
-    container_name: jaeger
-    image: docker.io/jaegertracing/all-in-one:latest
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-      - SPAN_STORAGE_TYPE=memory
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "14269:14269"  # Metrics endpoint
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: on-failure
-    networks:
-      - bank-net
-
-  prometheus:
-    container_name: prometheus
-    image: docker.io/prom/prometheus:latest
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=7d'
-      - '--web.enable-lifecycle'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    ports:
-      - "9090:9090"
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: on-failure
-    networks:
-      - bank-net
-
-  loki:
-    container_name: loki
-    image: docker.io/grafana/loki:latest
-    command: -config.file=/etc/loki/loki.yml
-    volumes:
-      - ./config/loki.yml:/etc/loki/loki.yml:ro
-      - loki-data:/loki
-    ports:
-      - "3100:3100"
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: on-failure
-    networks:
-      - bank-net
-
-  grafana:
-    container_name: grafana
-    image: docker.io/grafana/grafana:latest
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_INSTALL_PLUGINS=
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./config/grafana:/etc/grafana/provisioning:ro
-    ports:
-      - "3000:3000"
-    depends_on:
-      prometheus:
-        condition: service_healthy
-      loki:
-        condition: service_healthy
-      jaeger:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: on-failure
-    networks:
-      - bank-net
-
 networks:
   bank-net:
     driver: bridge
@@ -449,10 +343,3 @@ volumes:
   pgadmin_data:
   notification_data:
   aspire_data_protection:
-  prometheus-data:
-    driver: local
-  loki-data:
-    driver: local
-  grafana-data:
-    driver: local
-

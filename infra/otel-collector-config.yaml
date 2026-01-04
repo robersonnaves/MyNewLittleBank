@@ -25,11 +25,17 @@ processors:
         action: insert
 
 exporters:
-  # Exportar para o Aspire Dashboard (via OTLP)
+  # Exportar para o Aspire Dashboard (via OTLP gRPC)
   otlp/aspire:
     endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
     tls:
       insecure: true
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
   
   # Debug exporter para logs (opcional, comentar em produção)
   debug:

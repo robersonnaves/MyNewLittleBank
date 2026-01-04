@@ -1,0 +1,128 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Detecção automática de recursos (ambiente, hostname, etc)
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+  
+  # Enriquecimento de recursos
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+      - key: service.name
+        from_attribute: service.name
+        action: upsert
+  
+  # Agrupamento de dados para otimizar envio
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+  
+  # Limitação de memória
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  
+  # Adicionar/modificar atributos
+  attributes:
+    actions:
+      - key: deployment.environment
+        value: local
+        action: insert
+
+exporters:
+  # Exportar para o Aspire Dashboard (via OTLP gRPC) - compatibilidade
+  otlp/aspire:
+    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+    tls:
+      insecure: true
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  
+  # Exportar traces para Jaeger via OTLP gRPC
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  
+  # Exportar métricas para Prometheus (exposição em /metrics)
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    const_labels:
+      deployment_environment: local
+  
+  # Exportar logs para Loki via HTTP
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+  
+  # Debug exporter para logs (opcional, comentar em produção)
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, memory_limiter, batch, attributes]
+      exporters: [otlp/aspire, otlp/jaeger, debug]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, memory_limiter, batch, attributes]
+      exporters: [otlp/aspire, prometheus, debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [resourcedetection, resource, attributes, batch, memory_limiter]
+      exporters: [otlp/aspire, loki, debug]
+  
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+

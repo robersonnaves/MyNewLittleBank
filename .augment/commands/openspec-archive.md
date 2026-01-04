@@ -1,9 +1,7 @@
 ---
 description: Archive a deployed OpenSpec change and update specs.
+argument-hint: change-id
 ---
-<ChangeId>
-  $ARGUMENTS
-</ChangeId>
 <!-- OPENSPEC:START -->
 **Guardrails**
 - Favor straightforward, minimal implementations first and add complexity only when it is requested or clearly required.
