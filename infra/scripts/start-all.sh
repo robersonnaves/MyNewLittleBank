@@ -57,6 +57,10 @@ MOCK_TRANSACTIONS_ENABLED="${MOCK_TRANSACTIONS_ENABLED:-true}"
 
 echo -e "${CYAN}Starting all services...${NC}"
 
+# Ensure network exists before starting stacks
+echo -e "${CYAN}Ensuring bank-net network exists...${NC}"
+"${ENGINE}" network create bank-net 2>/dev/null || true
+
 if [ "${MOCK_TRANSACTIONS_ENABLED}" = "true" ]; then
   echo -e "${GREEN}Mock.Transactions enabled - starting via docker-compose${NC}"
   "${ENGINE}" compose ${COMPOSE_FILES} -p "${PROJECT_NAME}" up -d --build
@@ -76,5 +80,18 @@ if [ "${MOCK_TRANSACTIONS_ENABLED}" = "true" ]; then
 fi
 echo -e "${CYAN}Mock.Transactions status: ${status_message}${NC}"
 
+# Start observability stack
+echo -e "\n${CYAN}Starting observability stack...${NC}"
+COMPOSE_OBSERVABILITY="$(realpath "${SCRIPT_DIR}/../docker-compose.observability.yml")"
+"${ENGINE}" compose -f "${COMPOSE_OBSERVABILITY}" -p "${PROJECT_NAME}-observability" up -d
+
+if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}Warning: Failed to start observability stack${NC}" >&2
+else
+    echo -e "${GREEN}Observability stack started successfully${NC}"
+fi
+
 echo -e "\n${CYAN}Service status:${NC}"
 "${ENGINE}" compose ${COMPOSE_FILES} -p "${PROJECT_NAME}" ps
+echo -e "\n${CYAN}Observability stack status:${NC}"
+"${ENGINE}" compose -f "${COMPOSE_OBSERVABILITY}" -p "${PROJECT_NAME}-observability" ps

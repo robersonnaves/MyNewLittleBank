@@ -54,8 +54,8 @@ services:
       - tempo_data:/var/tempo
     ports:
       - "3200:3200"   # Tempo UI/API
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      # OTLP ports (4317, 4318) are exposed by otel-collector in main stack
+      # Tempo receives traces internally via Docker network (tempo:4317)
     networks:
       - bank-net
     healthcheck:

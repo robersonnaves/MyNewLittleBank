@@ -7,12 +7,6 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  # Limita uso de memória (DEVE SER PRIMEIRO)
-  memory_limiter:
-    check_interval: 1s
-    limit_mib: 512
-    spike_limit_mib: 128
-  
   # Detecta recursos automaticamente (hostname, etc)
   resourcedetection:
     detectors: [env, system]
@@ -26,18 +20,28 @@ processors:
         value: local
         action: upsert
   
-  # Adiciona atributo error baseado em status codes HTTP >= 400
+  # Adiciona atributo error baseado em status codes HTTP
   attributes/error:
     actions:
       - key: error
         value: true
         action: insert
+        conditions:
+          - key: http.status_code
+            operator: gte
+            value: 400
   
   # Agrupa dados para otimizar envio
   batch:
     timeout: 1s
     send_batch_size: 1024
     send_batch_max_size: 2048
+  
+  # Limita uso de memória
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
 
 exporters:
   # Tempo para traces distribuídos
@@ -48,7 +52,7 @@ exporters:
   
   # Loki para logs via OTLP HTTP
   otlphttp/logs:
-    endpoint: http://loki:3100/otlp
+    endpoint: http://loki/otlp
     tls:
       insecure: true
   
@@ -57,6 +61,12 @@ exporters:
     endpoint: 0.0.0.0:8889
     const_labels:
       deployment_environment: local
+  
+  # Pyroscope para profiling (opcional, via HTTP)
+  otlphttp/pyroscope:
+    endpoint: http://pyroscope:4040
+    tls:
+      insecure: true
 
 extensions:
   health_check:
@@ -68,17 +78,16 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resourcedetection, resource, batch]
+      processors: [resourcedetection, resource, attributes/error, memory_limiter, batch]
       exporters: [otlp/tempo]
     
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, resourcedetection, resource, batch]
+      processors: [resourcedetection, resource, memory_limiter, batch]
       exporters: [prometheus]
     
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resourcedetection, resource, batch]
+      processors: [resourcedetection, resource, attributes/error, memory_limiter, batch]
       exporters: [otlphttp/logs]
-
 

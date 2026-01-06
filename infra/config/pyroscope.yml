@@ -1,33 +1,10 @@
-# Pyroscope Server Configuration
+# Pyroscope Server Configuration - Simplified
 
-# API Server
-api:
-  bind_addr: :4040
+server:
+  http_listen_port: 4040
 
-# Storage
 storage:
-  type: local
-  path: /var/lib/pyroscope
-
-# Retention: 7 dias
-retention:
-  enabled: true
-  period: 168h  # 7 dias
-
-# Cache
-cache:
-  type: filesystem
-  size: 1024  # MB
-
-# Ingest
-ingest:
-  max_concurrent_jobs: 10
-  max_jobs_queue_size: 100
-
-# Query
-query:
-  max_concurrent_queries: 10
-
-# Logging
-log_level: info
+  backend: filesystem
+  filesystem:
+    dir: /var/lib/pyroscope
 

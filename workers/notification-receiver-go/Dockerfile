@@ -33,9 +33,9 @@ COPY --from=builder /build/notification-receiver .
 # Create data directory
 RUN mkdir -p /data/notifications
 
-# Copy entrypoint script
+# Copy entrypoint script and convert line endings
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Expose port
 EXPOSE 8080

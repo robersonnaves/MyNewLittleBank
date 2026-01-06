@@ -41,4 +41,8 @@ echo -e "${CYAN}Stopping all services...${NC}"
 
 "${ENGINE}" compose ${COMPOSE_FILES} -p "${PROJECT_NAME}" down
 
+echo -e "${CYAN}Stopping observability stack...${NC}"
+COMPOSE_OBSERVABILITY="$(realpath "${SCRIPT_DIR}/../docker-compose.observability.yml")"
+"${ENGINE}" compose -f "${COMPOSE_OBSERVABILITY}" -p "${PROJECT_NAME}-observability" down
+
 echo -e "\n${GREEN}All services stopped.${NC}"

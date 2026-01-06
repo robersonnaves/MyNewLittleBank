@@ -15,8 +15,7 @@ ingester:
 
 compactor:
   compaction:
-    block_retention: 168h  # 7 dias
-    compacted_block_retention: 1h
+    block_retention: 168h
 
 storage:
   trace:
@@ -26,13 +25,4 @@ storage:
     pool:
       max_workers: 100
       queue_depth: 10000
-
-# Retenção de 7 dias
-retention_period: 168h
-
-# Otimizações
-overrides:
-  defaults:
-    ingestion_burst_size_bytes: 1073741824  # 1GB
-    ingestion_rate_limit_bytes: 1073741824  # 1GB
 

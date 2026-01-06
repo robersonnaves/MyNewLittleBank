@@ -32,20 +32,12 @@ $ProjectName = 'mynewlittlebank'
 try {
     Write-Host "Starting all services..." -ForegroundColor Cyan
     
-    # Ensure network exists before starting stacks
-    Write-Host "Ensuring bank-net network exists..." -ForegroundColor Cyan
-    & $Engine network create bank-net 2>$null
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 125) {
-        # Error code 125 means network already exists, which is OK
-        Write-Host "Note: Network creation returned code $LASTEXITCODE (may already exist)" -ForegroundColor Yellow
-    }
-    
     if ($MockTransactionsEnabled) {
         Write-Host "Mock.Transactions enabled - starting via docker-compose" -ForegroundColor Green
-        & $Engine compose -f $ComposeFile -p $ProjectName up -d --build
+        & $Engine compose -f $ComposeFile -p $ProjectName --profile local up -d --build
     } else {
         Write-Host "Mock.Transactions disabled - scaling to 0" -ForegroundColor Yellow
-        & $Engine compose -f $ComposeFile -p $ProjectName up -d --build --scale mock-transactions=0
+        & $Engine compose -f $ComposeFile -p $ProjectName --profile local up -d --build --scale mock-transactions=0
     }
     
     if ($LASTEXITCODE -ne 0) {
@@ -70,11 +62,10 @@ try {
     }
     
     Write-Host "\nService status:" -ForegroundColor Cyan
-    & $Engine compose -f $ComposeFile -p $ProjectName ps
+    & $Engine compose -f $ComposeFile -p $ProjectName --profile local ps
     Write-Host "\nObservability stack status:" -ForegroundColor Cyan
     & $Engine compose -f $ObservabilityComposeFile -p "${ProjectName}-observability" ps
 } catch {
     Write-Host "`nError: $_" -ForegroundColor Red
     exit 1
 }
-
