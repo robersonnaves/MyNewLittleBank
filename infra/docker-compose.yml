@@ -298,7 +298,7 @@ services:
       - bank-net
 networks:
   bank-net:
-    driver: bridge
+    external: true
 
 volumes:
   postgres_data:

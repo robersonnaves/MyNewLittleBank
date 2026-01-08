@@ -37,12 +37,6 @@ services:
       - "3100:3100"
     networks:
       - bank-net
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     restart: on-failure
 
   tempo:
@@ -58,12 +52,6 @@ services:
       # Tempo receives traces internally via Docker network (tempo:4317)
     networks:
       - bank-net
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3200/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     restart: on-failure
 
   pyroscope:
@@ -77,12 +65,6 @@ services:
       - "4040:4040"
     networks:
       - bank-net
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4040/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     restart: on-failure
 
   grafana:
@@ -103,11 +85,11 @@ services:
       prometheus:
         condition: service_healthy
       loki:
-        condition: service_healthy
+        condition: service_started
       tempo:
-        condition: service_healthy
+        condition: service_started
       pyroscope:
-        condition: service_healthy
+        condition: service_started
     networks:
       - bank-net
     healthcheck:

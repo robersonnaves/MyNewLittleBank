@@ -23,13 +23,30 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $PSCommandPath
-$ComposeFile = Join-Path $ScriptDir '..\docker-compose.yml'
+$ComposeBase = Join-Path $ScriptDir '..\docker-compose.yml'
+$ComposeLinux = Join-Path $ScriptDir '..\docker-compose.linux.yml'
+$ComposeOverride = Join-Path $ScriptDir '..\docker-compose.override.yml'
 $Engine = if ($env:CONTAINER_ENGINE) { $env:CONTAINER_ENGINE } else { 'podman' }
 $ProjectName = 'mynewlittlebank'
 
 # Docker-compose handles all process management
 
 try {
+    $platform = if ($IsLinux) { 'linux' } elseif ($IsMacOS) { 'macos' } elseif ($IsWindows) { 'windows' } else { 'unknown' }
+    Write-Host "Detected platform: $platform" -ForegroundColor Cyan
+    Write-Host "Using container engine: $Engine" -ForegroundColor Cyan
+
+    # Build compose file arguments (parity with bash script)
+    $ComposeArgs = @('-f', $ComposeBase)
+    if ($IsLinux -and (Test-Path $ComposeLinux)) {
+        Write-Host "Using Linux-specific overrides (SELinux)" -ForegroundColor Cyan
+        $ComposeArgs += @('-f', $ComposeLinux)
+    }
+    if (Test-Path $ComposeOverride) {
+        Write-Host "Using local overrides" -ForegroundColor Cyan
+        $ComposeArgs += @('-f', $ComposeOverride)
+    }
+
     Write-Host "Starting all services..." -ForegroundColor Cyan
     
     # Ensure network exists before starting stacks
@@ -42,10 +59,10 @@ try {
     
     if ($MockTransactionsEnabled) {
         Write-Host "Mock.Transactions enabled - starting via docker-compose" -ForegroundColor Green
-        & $Engine compose -f $ComposeFile -p $ProjectName up -d --build
+        & $Engine compose $ComposeArgs -p $ProjectName up -d --build
     } else {
         Write-Host "Mock.Transactions disabled - scaling to 0" -ForegroundColor Yellow
-        & $Engine compose -f $ComposeFile -p $ProjectName up -d --build --scale mock-transactions=0
+        & $Engine compose $ComposeArgs -p $ProjectName up -d --build --scale mock-transactions=0
     }
     
     if ($LASTEXITCODE -ne 0) {
@@ -70,7 +87,7 @@ try {
     }
     
     Write-Host "\nService status:" -ForegroundColor Cyan
-    & $Engine compose -f $ComposeFile -p $ProjectName ps
+    & $Engine compose $ComposeArgs -p $ProjectName ps
     Write-Host "\nObservability stack status:" -ForegroundColor Cyan
     & $Engine compose -f $ObservabilityComposeFile -p "${ProjectName}-observability" ps
 } catch {
